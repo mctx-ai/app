@@ -24,7 +24,7 @@ const DEFAULT_TIMEOUT = 30000;
  *
  * @example
  * // In a tool handler
- * function* summarize({ document, ask }) {
+ * async function summarize({ document }, ask, env) {
  *   if (!ask) {
  *     return "Client doesn't support sampling";
  *   }

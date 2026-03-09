@@ -36,9 +36,23 @@ app.tool("greet", greet);
 
 - Receives parsed arguments as first parameter
 - Second parameter `ask` is always `null` (sampling not yet implemented)
+- Third parameter `env` is the Cloudflare Workers environment object (`Readonly<Record<string, any>>`), defaults to `{}`
 - Returns `string`, `object` (auto-serialized), or MCP content array
 - Attach `.description` and `.input` as properties on the function
 - Errors are caught and returned as tool error responses with secrets redacted
+
+The `env` parameter gives handlers access to Cloudflare bindings such as D1 databases, KV namespaces, and R2 buckets. When running outside Cloudflare Workers (for example, during local development), `env` is `{}`.
+
+```js
+// Accessing a D1 database binding
+const lookup = async ({ userId }, _ask, env) => {
+  const row = await env.DB.prepare("SELECT name FROM users WHERE id = ?").bind(userId).first();
+  return row ? row.name : "Not found";
+};
+lookup.description = "Look up a user name by ID";
+lookup.input = { userId: T.string({ required: true }) };
+app.tool("lookup", lookup);
+```
 
 Binary content types (ImageContent, AudioContent per MCP spec) are planned for a future release.
 
@@ -58,6 +72,18 @@ user.mimeType = "application/json";
 app.resource("user://{userId}", user);
 ```
 
+Resource handlers receive `(params, ask, env)`. For static resources `params` is `{}`. Use `env` to access Cloudflare bindings:
+
+```js
+// Dynamic resource backed by KV
+const config = async ({ key }, _ask, env) => {
+  const value = await env.KV.get(key);
+  return value ?? "Not found";
+};
+config.mimeType = "text/plain";
+app.resource("config://{key}", config);
+```
+
 ### app.prompt(name, handler)
 
 Register a prompt template. Return a string for single-message prompts, or use `conversation()` for multi-message.
@@ -73,6 +99,18 @@ const debug = ({ error }) =>
   conversation(({ user, ai }) => [user.say(`Debug: ${error}`), ai.say("Analyzing...")]);
 debug.input = { error: T.string({ required: true }) };
 app.prompt("debug", debug);
+```
+
+Prompt handlers receive `(args, ask, env)`. Use `env` to fetch dynamic context from Cloudflare bindings before building the prompt:
+
+```js
+// Prompt that loads context from KV
+const summarize = async ({ topic }, _ask, env) => {
+  const context = await env.KV.get(`context:${topic}`);
+  return `Summarize the following about "${topic}":\n\n${context ?? "No context found."}`;
+};
+summarize.input = { topic: T.string({ required: true }) };
+app.prompt("summarize", summarize);
 ```
 
 ### app.fetch(request, env, ctx)
@@ -218,13 +256,14 @@ Logs are buffered internally. In the current HTTP transport, buffered logs are d
 
 ## Sampling (ask)
 
-Tool handlers receive a second parameter named `ask` for LLM sampling. Sampling requires bidirectional communication, which is not available in the current HTTP transport.
+All handlers receive a second parameter named `ask` for LLM sampling. Sampling requires bidirectional communication, which is not available in the current HTTP transport.
 
 **`ask` always returns `null` in the current implementation.** Sampling support is not yet implemented.
 
 ```js
-const smart = async ({ question }, ask) => {
+const smart = async ({ question }, ask, env) => {
   // ask is always null currently -- sampling is not yet implemented
+  // env is available for Cloudflare bindings even without sampling
   return `Answer: ${question}`;
 };
 ```

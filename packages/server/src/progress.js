@@ -27,7 +27,7 @@ export const PROGRESS_DEFAULTS = {
  *
  * @example
  * // Determinate progress (with known total)
- * function* migrate({ sourceDb, targetDb }) {
+ * function* migrate({ sourceDb, targetDb }, ask, env) {
  *   const tables = await getTables(sourceDb);
  *   const step = createProgress(tables.length);
  *
@@ -41,7 +41,7 @@ export const PROGRESS_DEFAULTS = {
  *
  * @example
  * // Indeterminate progress (no total)
- * function* processQueue({ queueUrl }) {
+ * function* processQueue({ queueUrl }, ask, env) {
  *   const step = createProgress();
  *
  *   while (hasMessages(queueUrl)) {

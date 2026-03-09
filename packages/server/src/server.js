@@ -151,7 +151,9 @@ export function createServer(options = {}) {
   /**
    * Register a tool
    * @param {string} name - Tool name
-   * @param {Function} handler - Tool handler function
+   * @param {Function} handler - Tool handler function. Called as handler(params, ask, env) where
+   *   params is the validated input, ask is the sampling function (or undefined), and env is the
+   *   Cloudflare Workers env object (Readonly<Record<string, any>>, defaults to {}).
    * @returns {Object} App instance (for chaining)
    */
   function tool(name, handler) {
@@ -166,7 +168,9 @@ export function createServer(options = {}) {
   /**
    * Register a resource
    * @param {string} uri - Resource URI (may contain {param} templates)
-   * @param {Function} handler - Resource handler function
+   * @param {Function} handler - Resource handler function. Called as handler(params, ask, env) where
+   *   params contains URI template variables, ask is the sampling function (or undefined), and env
+   *   is the Cloudflare Workers env object (Readonly<Record<string, any>>, defaults to {}).
    * @returns {Object} App instance (for chaining)
    */
   function resource(uri, handler) {
@@ -181,7 +185,9 @@ export function createServer(options = {}) {
   /**
    * Register a prompt
    * @param {string} name - Prompt name
-   * @param {Function} handler - Prompt handler function
+   * @param {Function} handler - Prompt handler function. Called as handler(params, ask, env) where
+   *   params is the validated input, ask is the sampling function (or undefined), and env is the
+   *   Cloudflare Workers env object (Readonly<Record<string, any>>, defaults to {}).
    * @returns {Object} App instance (for chaining)
    */
   function prompt(name, handler) {
@@ -222,9 +228,10 @@ export function createServer(options = {}) {
    * @param {Object} params - Request params
    * @param {Object} [meta] - Request metadata (_meta field)
    * @param {string|null} [sessionId] - MCP session ID from request header
+   * @param {Object} [env] - Cloudflare Workers environment bindings
    * @returns {Promise<Object>} Tool result
    */
-  async function handleToolsCall(params, meta = {}, sessionId = null) {
+  async function handleToolsCall(params, meta = {}, sessionId = null, env = {}) {
     const { name, arguments: args } = params;
 
     if (!name) {
@@ -261,12 +268,12 @@ export function createServer(options = {}) {
 
       if (isGenerator) {
         // Execute generator with progress tracking
-        return await executeGeneratorHandler(handler, sanitizedArgs, ask, meta);
+        return await executeGeneratorHandler(handler, sanitizedArgs, ask, meta, env);
       }
 
       // Execute regular handler (support both sync and async)
-      // Pass ask as second argument
-      const result = await handler(sanitizedArgs, ask);
+      // Pass ask as second argument, env as third argument
+      const result = await handler(sanitizedArgs, ask, env);
 
       // Wrap result based on type
       if (typeof result === "string") {
@@ -297,9 +304,10 @@ export function createServer(options = {}) {
    * @param {Object} args - Tool arguments
    * @param {Function|null} ask - Ask function (or null if not supported)
    * @param {Object} meta - Request metadata
+   * @param {Object} [env] - Cloudflare Workers environment bindings
    * @returns {Promise<Object>} Tool result
    */
-  async function executeGeneratorHandler(handler, args, ask, meta) {
+  async function executeGeneratorHandler(handler, args, ask, meta, env = {}) {
     const progressToken = meta.progressToken;
     const startTime = Date.now();
     let yieldCount = 0;
@@ -311,7 +319,7 @@ export function createServer(options = {}) {
 
     try {
       // Execute generator using iterator protocol to capture return value
-      const iterator = handler(args, ask);
+      const iterator = handler(args, ask, env);
       let iterResult = await iterator.next();
 
       while (!iterResult.done) {
@@ -421,9 +429,10 @@ export function createServer(options = {}) {
    * Handle resources/read request
    * @param {Object} params - Request params
    * @param {string|null} [sessionId] - MCP session ID from request header
+   * @param {Object} [env] - Cloudflare Workers environment bindings
    * @returns {Promise<Object>} Resource content
    */
-  async function handleResourcesRead(params, sessionId = null) {
+  async function handleResourcesRead(params, sessionId = null, env = {}) {
     const { uri } = params;
 
     if (!uri) {
@@ -477,8 +486,8 @@ export function createServer(options = {}) {
       // Sanitize extracted params to prevent prototype pollution
       const sanitizedParams = sanitizeInput(extractedParams);
 
-      // Execute handler with sanitized params and ask
-      const result = await handler(sanitizedParams, ask);
+      // Execute handler with sanitized params, ask, and env
+      const result = await handler(sanitizedParams, ask, env);
 
       // Wrap result as resource content
       const mimeType = handler.mimeType || "text/plain";
@@ -560,9 +569,10 @@ export function createServer(options = {}) {
    * Handle prompts/get request
    * @param {Object} params - Request params
    * @param {string|null} [sessionId] - MCP session ID from request header
+   * @param {Object} [env] - Cloudflare Workers environment bindings
    * @returns {Promise<Object>} Prompt messages
    */
-  async function handlePromptsGet(params, sessionId = null) {
+  async function handlePromptsGet(params, sessionId = null, env = {}) {
     const { name, arguments: args } = params;
 
     if (!name) {
@@ -581,8 +591,8 @@ export function createServer(options = {}) {
       // Sanitize arguments to prevent prototype pollution
       const sanitizedArgs = sanitizeInput(args || {});
 
-      // Execute handler with sanitized args
-      const result = await handler(sanitizedArgs, ask);
+      // Execute handler with sanitized args and env
+      const result = await handler(sanitizedArgs, ask, env);
 
       // If handler returns a string, wrap as user message
       if (typeof result === "string") {
@@ -777,9 +787,10 @@ export function createServer(options = {}) {
    * Route JSON-RPC request to appropriate handler
    * @param {Object} request - JSON-RPC request
    * @param {string|null} sessionId - MCP session ID from request header
+   * @param {Object} [env] - Cloudflare Workers environment bindings
    * @returns {Promise<Object>} Response result
    */
-  async function route(request, sessionId) {
+  async function route(request, sessionId, env = {}) {
     const { method, params, _meta } = request;
 
     switch (method) {
@@ -798,13 +809,13 @@ export function createServer(options = {}) {
         return handleToolsList(params);
 
       case "tools/call":
-        return await handleToolsCall(params, _meta, sessionId);
+        return await handleToolsCall(params, _meta, sessionId, env);
 
       case "resources/list":
         return handleResourcesList(params);
 
       case "resources/read":
-        return await handleResourcesRead(params, sessionId);
+        return await handleResourcesRead(params, sessionId, env);
 
       case "resources/templates/list":
         return handleResourceTemplatesList(params);
@@ -813,7 +824,7 @@ export function createServer(options = {}) {
         return handlePromptsList(params);
 
       case "prompts/get":
-        return await handlePromptsGet(params, sessionId);
+        return await handlePromptsGet(params, sessionId, env);
 
       case "notifications/cancelled":
         // Silent acknowledgment - no response for notifications
@@ -836,11 +847,11 @@ export function createServer(options = {}) {
   /**
    * Cloudflare Worker fetch handler
    * @param {Request} request - HTTP request
-   * @param {Object} _env - Environment variables
+   * @param {Object} [env] - Environment variables (Cloudflare Workers bindings)
    * @param {Object} _ctx - Execution context
    * @returns {Promise<Response>} HTTP response
    */
-  async function fetch(request, _env, _ctx) {
+  async function fetch(request, env = {}, _ctx) {
     // Only accept POST requests
     if (request.method !== "POST") {
       return new Response(
@@ -911,8 +922,11 @@ export function createServer(options = {}) {
     }
 
     try {
+      // Freeze env before dispatch so no handler can mutate it and affect siblings
+      const frozenEnv = Object.freeze(Object.assign(Object.create(null), env));
+
       // Route request
-      const result = await route(rpcRequest, sessionId);
+      const result = await route(rpcRequest, sessionId, frozenEnv);
 
       // Flush log buffer
       // NOTE: In HTTP mode, logs are buffered but can't be sent as notifications

@@ -149,14 +149,15 @@ export function createServer(options?: ServerOptions): Server;
 
 /**
  * Tool handler function (non-generator).
- * Receives arguments and optional ask function for LLM sampling.
+ * Receives arguments, optional ask function for LLM sampling, and env bindings.
  *
  * @param args - Tool arguments (validated against handler.input schema)
  * @param ask - Optional LLM sampling function (null if not supported)
+ * @param env - Cloudflare Workers environment bindings (KV, D1, secrets, etc.)
  * @returns Tool result (string, object, or Promise thereof)
  */
 export type ToolHandler = {
-  (args: Record<string, any>, ask?: AskFunction | null): any | Promise<any>;
+  (args: Record<string, any>, ask?: AskFunction | null, env?: Readonly<Record<string, any>>): any | Promise<any>;
   /** Tool description for documentation */
   description?: string;
   /** Input schema definition using T types */
@@ -171,6 +172,7 @@ export type ToolHandler = {
  *
  * @param args - Tool arguments
  * @param ask - Optional LLM sampling function
+ * @param env - Cloudflare Workers environment bindings (KV, D1, secrets, etc.)
  * @yields Progress notifications or intermediate values
  * @returns Final tool result
  *
@@ -190,6 +192,7 @@ export type GeneratorToolHandler = {
   (
     args: Record<string, any>,
     ask?: AskFunction | null,
+    env?: Readonly<Record<string, any>>,
   ): Generator<any, any, any> | AsyncGenerator<any, any, any>;
   description?: string;
   input?: Record<string, SchemaDefinition>;
@@ -202,12 +205,14 @@ export type GeneratorToolHandler = {
  *
  * @param params - Extracted URI template parameters (e.g., { id: '123' })
  * @param ask - Optional LLM sampling function
+ * @param env - Cloudflare Workers environment bindings (KV, D1, secrets, etc.)
  * @returns Resource content
  */
 export type ResourceHandler = {
   (
     params: Record<string, string>,
     ask?: AskFunction | null,
+    env?: Readonly<Record<string, any>>,
   ): any | Promise<any>;
   /** Resource name for display */
   name?: string;
@@ -223,12 +228,14 @@ export type ResourceHandler = {
  *
  * @param args - Prompt arguments
  * @param ask - Optional LLM sampling function
+ * @param env - Cloudflare Workers environment bindings (KV, D1, secrets, etc.)
  * @returns Prompt messages (string, conversation result, or message array)
  */
 export type PromptHandler = {
   (
     args: Record<string, any>,
     ask?: AskFunction | null,
+    env?: Readonly<Record<string, any>>,
   ):
     | string
     | ConversationResult

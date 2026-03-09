@@ -71,9 +71,10 @@ function readme() {
 readme.mimeType = "text/markdown";
 app.resource("docs://readme", readme);
 
-// Dynamic template
-function getUser({ userId }) {
-  return JSON.stringify(db.findUser(userId));
+// Dynamic template — env provides access to Cloudflare bindings (D1, KV, etc.)
+async function getUser({ userId }, _ask, env) {
+  const user = await env.DB.prepare("SELECT * FROM users WHERE id = ?").bind(userId).first();
+  return JSON.stringify(user);
 }
 getUser.description = "Fetch a user by ID";
 getUser.mimeType = "application/json";
@@ -200,7 +201,7 @@ Levels follow RFC 5424: `debug`, `info`, `notice`, `warning`, `error`, `critical
 
 ### Sampling (ask)
 
-Tools receive an optional `ask` function as their second argument for LLM-in-the-loop patterns.
+Tools receive an optional `ask` function as their second argument for LLM-in-the-loop patterns. The Cloudflare Workers `env` object is the third argument.
 
 ```javascript
 async function summarize({ url }, ask) {
@@ -211,6 +212,8 @@ async function summarize({ url }, ask) {
   return content;
 }
 ```
+
+The full handler signature is `(args, ask, env)` for tools and prompts, and `(params, ask, env)` for resource templates. All three parameters are optional — omit any you don't need.
 
 ---
 

@@ -182,8 +182,8 @@ Tools receive an optional `ask` function as their second argument for LLM-in-the
 ```javascript
 async function summarize({ url }, ask) {
   const content = await fetchPage(url);
-  const summary = await ask(`Summarize this page:\n\n${content}`);
-  return summary;
+  if (!ask) return content;
+  return await ask(`Summarize this page:\n\n${content}`);
 }
 ```
 

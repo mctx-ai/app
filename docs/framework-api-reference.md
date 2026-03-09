@@ -35,7 +35,7 @@ app.tool("greet", greet);
 **Handler contract:**
 
 - Receives parsed arguments as first parameter
-- Second parameter `ask` is always `null` (sampling not yet implemented)
+- Second parameter `ask` is a function when the client advertises sampling capability, or `null` if the client does not support sampling — always check before calling
 - Returns `string`, `object` (auto-serialized), or MCP content array
 - Attach `.description` and `.input` as properties on the function
 - Errors are caught and returned as tool error responses with secrets redacted
@@ -216,24 +216,98 @@ log.alert("Immediate action needed");
 log.emergency("System unusable");
 ```
 
-Logs are buffered internally. In the current HTTP transport, buffered logs are discarded after each request and are not visible in the dashboard. To write logs that appear in the real-time dashboard logs viewer, use `console.log()`, `console.warn()`, or `console.error()` instead.
+Logs are buffered internally with FIFO eviction at 10,000 entries. The buffer persists until explicitly cleared. `mctx-dev` reads the buffer after each request using `getLogBuffer()` and `clearLogBuffer()` to surface logs in the dev console. In production, the server or hosting layer is responsible for pulling and forwarding buffered logs.
+
+### getLogBuffer()
+
+Returns a copy of the current log buffer without clearing it.
+
+```js
+import { getLogBuffer } from "@mctx-ai/mcp-server";
+
+const entries = getLogBuffer();
+// [{ type: 'log', level: 'info', data: 'Server started' }, ...]
+```
+
+**Returns:** `Array<{ type: 'log', level: string, data: * }>` — a snapshot of all buffered log entries. The array is a copy; mutating it does not affect the internal buffer.
+
+### clearLogBuffer()
+
+Clears all entries from the log buffer.
+
+```js
+import { clearLogBuffer } from "@mctx-ai/mcp-server";
+
+clearLogBuffer();
+```
+
+**Returns:** `void`.
+
+### Pull-after-request pattern
+
+The intended usage is to read and clear the buffer after each request completes, which is exactly how `mctx-dev` works:
+
+```js
+import { getLogBuffer, clearLogBuffer } from "@mctx-ai/mcp-server";
+
+// After handling a request:
+const logs = getLogBuffer();
+clearLogBuffer();
+// Forward `logs` to your log sink
+```
 
 ---
 
 ## Sampling (ask)
 
-All handlers receive a second parameter named `ask` for LLM sampling. Sampling requires bidirectional communication, which is not available in the current HTTP transport.
+All handlers receive a second parameter `ask` that enables LLM-in-the-loop sampling. The framework creates `ask` via `createAsk()`, which checks client capabilities during the MCP `initialize` handshake.
 
-**`ask` always returns `null` in the current implementation.** Sampling support is not yet implemented.
+- **`ask` is a function** when the client advertises `sampling` capability.
+- **`ask` is `null`** when the client does not support sampling.
+
+Always guard before calling `ask`:
 
 ```js
 const smart = async ({ question }, ask) => {
-  // ask is always null currently -- sampling is not yet implemented
-  return `Answer: ${question}`;
+  if (!ask) {
+    return `Answer: ${question}`;
+  }
+
+  // Simple string prompt
+  const result = await ask(`Answer this question: ${question}`);
+  return result;
 };
 ```
 
-The `ask` parameter is reserved for future streaming transport support. Do not rely on it returning a value.
+### Advanced usage
+
+Pass an options object for full control over the `sampling/createMessage` request:
+
+```js
+const smart = async ({ question }, ask) => {
+  if (!ask) return `Answer: ${question}`;
+
+  const result = await ask({
+    messages: [{ role: "user", content: { type: "text", text: question } }],
+    modelPreferences: { hints: [{ name: "claude-3-5-sonnet" }] },
+    systemPrompt: "You are a helpful assistant.",
+    maxTokens: 1000,
+  });
+
+  return result;
+};
+```
+
+### ask(promptOrOptions, timeout?)
+
+| Parameter         | Type             | Description                                                       |
+| ----------------- | ---------------- | ----------------------------------------------------------------- |
+| `promptOrOptions` | `string\|Object` | A plain string prompt, or an options object with `messages` array |
+| `timeout`         | `number`         | Request timeout in milliseconds. Default: `30000` (30s)           |
+
+Returns `Promise<string>` — the text content from the client's LLM response.
+
+Throws if the request fails or times out. Sampling is invoked via the MCP `sampling/createMessage` method sent through the active transport's `sendRequest` callback.
 
 ---
 

@@ -81,7 +81,7 @@ Update your `package.json` with the fields mctx needs to deploy your server:
     "build": "esbuild index.js --bundle --minify --platform=node --format=esm --outfile=dist/index.js"
   },
   "devDependencies": {
-    "esbuild": "latest"
+    "esbuild": "^0.27.0"
   }
 }
 ```

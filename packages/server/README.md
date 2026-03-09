@@ -198,6 +198,19 @@ log.error("Connection failed");
 
 Levels follow RFC 5424: `debug`, `info`, `notice`, `warning`, `error`, `critical`, `alert`, `emergency`.
 
+Log entries are buffered internally. Use `getLogBuffer` to read them and `clearLogBuffer` to flush the buffer.
+
+```javascript
+import { getLogBuffer, clearLogBuffer } from "@mctx-ai/mcp-server";
+
+const entries = getLogBuffer();
+// entries: Array of LogNotification objects with level, logger, and data fields
+
+clearLogBuffer(); // Empties the buffer
+```
+
+This is primarily useful for dev tools and middleware that need to surface handler logs — for example, printing handler log output to the console after each request.
+
 ### Sampling (ask)
 
 Tools receive an optional `ask` function as their second argument for LLM-in-the-loop patterns.

@@ -36,8 +36,8 @@ Note: npm is included with Node.js, so no additional setup action is required.
 
 Three npm workspaces in `packages/` (defined via `"workspaces": ["packages/*"]` in root `package.json`):
 
-- **`@mctx-ai/mcp-server`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `createProgress`, `PROGRESS_DEFAULTS`, `log`, `buildInputSchema`. Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
-- **`@mctx-ai/mcp-dev`** (`packages/dev/`) — Dev server with hot reload and request logging. Peer-depends on `@mctx-ai/mcp-server`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
+- **`@mctx-ai/mcp-server`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `createProgress`, `PROGRESS_DEFAULTS`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`. Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
+- **`@mctx-ai/mcp-dev`** (`packages/dev/`) — Dev server with hot reload, request logging, log surfacing (handler log entries printed to dev console), and sampling stub (`/_mctx/sampling` endpoint returns error in dev mode). Peer-depends on `@mctx-ai/mcp-server`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
 - **`create-mctx-server`** (`packages/create-mctx-server/`) — CLI scaffolding tool (`npm create mctx-server <name>`). Generates a new project with `@mctx-ai/mcp-server` + `@mctx-ai/mcp-dev` + `esbuild` configured.
 
 Root commands affect all workspaces. Use `--workspace` flag for package-specific operations.

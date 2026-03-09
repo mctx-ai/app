@@ -23,8 +23,10 @@ Your server restarts automatically on file changes.
 
 ## What It Does
 
-- **Hot reload** — watches your files and restarts on save
+- **Hot reload** — watches `.js`, `.mjs`, `.cjs`, and `.json` files and restarts on save
 - **Request logging** — logs every MCP request and response to the console
+- **Handler log surfacing** — prints any `log.*()` calls made inside your handlers to the dev console after each request
+- **Sampling stub** — when a tool calls `ask()`, the `/_mctx/sampling` endpoint returns a clear error explaining that sampling is not supported in dev mode
 - **Local testing** — serves your server over HTTP for use with any MCP client
 
 ---

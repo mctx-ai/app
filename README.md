@@ -230,6 +230,20 @@ Full deployment guide at [docs.mctx.ai](https://docs.mctx.ai).
 
 ---
 
+## Making Your Server Discoverable
+
+Your `package.json` fields directly affect how your server appears on [mctx.ai](https://mctx.ai), in search engines, and in AI assistant recommendations. Get these right and subscribers find you.
+
+**`description`** — This is marketing copy for potential subscribers _and_ an SEO field that Google indexes. You have 1,000 characters — use them. Write to sell: what your server does, specific capabilities, use cases, and the value it provides. This also appears in the [MCP Community Registry](https://registry.modelcontextprotocol.io), but display truncates around 100–150 characters, so front-load the most compelling information.
+
+**`homepage`** (optional) — Appears as a clickable link on your public mctx.ai server page. Set it to a project website or your GitHub repo URL. If your repo is private, leave this unset — private repo URLs show a 404 to visitors.
+
+**`README.md`** — Displayed on your public mctx.ai server page and submitted to [Context7](https://context7.com) for AI assistant discovery. Write it as real documentation: what the server does, what tools it provides, use cases, prerequisites. Lead with the most important information — the first ~4,000 characters are what AI assistants use when recommending your server to developers.
+
+See [docs.mctx.ai](https://docs.mctx.ai) for detailed guidance on all discoverability fields.
+
+---
+
 ## Links
 
 - [Documentation](https://docs.mctx.ai)

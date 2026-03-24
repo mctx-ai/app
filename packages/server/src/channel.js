@@ -18,8 +18,7 @@ export const META_KEY_PATTERN = /^[a-zA-Z0-9_]+$/;
 /**
  * Regex pattern for valid UUID v4 strings (case-insensitive).
  */
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Default event type when not specified.

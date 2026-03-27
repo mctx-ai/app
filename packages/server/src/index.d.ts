@@ -181,7 +181,7 @@ export interface ChannelEventOptions {
  * }
  * ```
  */
-export type EmitFunction = (content: string, options?: ChannelEventOptions) => Promise<void>;
+export type EmitFunction = (content: string, options?: ChannelEventOptions) => Promise<string>;
 
 /**
  * Regex pattern constant for valid metadata keys (/^[a-zA-Z0-9_]+$/).
@@ -189,59 +189,57 @@ export type EmitFunction = (content: string, options?: ChannelEventOptions) => P
 export declare const META_KEY_PATTERN: RegExp;
 
 /**
- * Creates a channel emit function bound to the given Cloudflare Worker environment.
+ * Creates a channel emit function bound to the given request context.
  *
- * Returns a no-op async function when MCTX_EVENTS_ENDPOINT, MCTX_SERVER_ID, or
- * MCTX_EVENTS_SECRET are missing from `env`.
+ * Sets X-Mctx-Event on ctx._pendingHeaders with the serialized event payload.
+ * Returns the generated eventId so callers can reference or cancel the event.
  *
- * @param env - Cloudflare Worker environment bindings
- * @param executionCtx - Cloudflare Worker execution context (for waitUntil)
- * @returns Async emit function
+ * @param ctx - Request context object with _pendingHeaders
+ * @returns Async emit function that returns eventId string
  *
  * @example
  * ```typescript
  * import { createEmit } from '@mctx-ai/app';
  *
- * const emit = createEmit(env, ctx);
- * await emit("Something happened", { eventType: "alert", meta: { severity: "high" } });
+ * const emit = createEmit(ctx);
+ * const eventId = await emit("Something happened", { eventType: "alert", meta: { severity: "high" } });
  * ```
  */
-export declare function createEmit(env: any, executionCtx?: any): EmitFunction;
+export declare function createEmit(ctx: any): EmitFunction;
 
 /**
  * Channel event cancellation function.
- * Cancels a pending scheduled channel event by its correlation key.
+ * Cancels a pending scheduled channel event by its eventId.
  *
  * @example
  * ```typescript
  * // In a tool handler — use ctx.cancel
- * async function myTool(args: { key: string }, ask, ctx) {
- *   await ctx.cancel(args.key);
+ * async function myTool(args, ask, ctx) {
+ *   const eventId = await ctx.emit("scheduled", { deliverAt: new Date(Date.now() + 60000) });
+ *   await ctx.cancel(eventId);
  *   return "cancelled";
  * }
  * ```
  */
-export type CancelFunction = (key: string) => Promise<void>;
+export type CancelFunction = (eventId: string) => Promise<void>;
 
 /**
- * Creates a channel cancel function bound to the given Cloudflare Worker environment.
+ * Creates a channel cancel function bound to the given request context.
  *
- * Returns a no-op async function when MCTX_EVENTS_ENDPOINT, MCTX_SERVER_ID, or
- * MCTX_EVENTS_SECRET are missing from `env`.
+ * Sets X-Mctx-Cancel on ctx._pendingHeaders with the eventId to cancel.
  *
- * @param env - Cloudflare Worker environment bindings
- * @param executionCtx - Cloudflare Worker execution context (for waitUntil)
+ * @param ctx - Request context object with _pendingHeaders
  * @returns Async cancel function
  *
  * @example
  * ```typescript
  * import { createCancel } from '@mctx-ai/app';
  *
- * const cancel = createCancel(env, ctx);
- * await cancel("my-event-key");
+ * const cancel = createCancel(ctx);
+ * await cancel(eventId);
  * ```
  */
-export declare function createCancel(env: any, executionCtx?: any): CancelFunction;
+export declare function createCancel(ctx: any): CancelFunction;
 
 // ============================================================================
 // Context Types

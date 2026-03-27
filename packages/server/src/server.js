@@ -870,7 +870,7 @@ export function createServer(options = {}) {
    * @param {Object} executionCtx - Execution context (Cloudflare Workers ctx)
    * @returns {Promise<Response>} HTTP response
    */
-  async function fetch(request, env, executionCtx) {
+  async function fetch(request, env, _executionCtx) {
     // Only accept POST requests
     if (request.method !== "POST") {
       return new Response(
@@ -895,14 +895,17 @@ export function createServer(options = {}) {
     // Extract user ID from request header injected by mctx dispatch worker
     const userId = request.headers.get("x-mctx-user-id") || undefined;
 
-    // Create channel emit function bound to this request's env and execution context
-    const emit = createEmit(env, executionCtx);
-
-    // Create channel cancel function bound to this request's env and execution context
-    const cancel = createCancel(env, executionCtx);
-
     // Build context object passed as third arg to all handlers
-    const ctx = { userId, emit, cancel };
+    const ctx = { userId, _pendingHeaders: {} };
+
+    // Create channel emit function bound to this request's ctx
+    const emit = createEmit(ctx);
+
+    // Create channel cancel function bound to this request's ctx
+    const cancel = createCancel(ctx);
+
+    ctx.emit = emit;
+    ctx.cancel = cancel;
 
     let rpcRequest;
     let rawBody;
@@ -980,7 +983,7 @@ export function createServer(options = {}) {
       // Return JSON-RPC success response
       return new Response(JSON.stringify(responseBody), {
         status: 200,
-        headers: SECURITY_HEADERS,
+        headers: { ...SECURITY_HEADERS, ...ctx._pendingHeaders },
       });
     } catch (error) {
       // Check if error is JSON-RPC error (has code and message)

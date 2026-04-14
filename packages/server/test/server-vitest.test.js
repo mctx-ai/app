@@ -5,8 +5,12 @@
  * pagination, error handling, and serialization.
  */
 
+import { createRequire } from "module";
 import { describe, it, expect } from "vitest";
 import { createServer, T } from "../src/index.js";
+
+const require = createRequire(import.meta.url);
+const { version: packageVersion } = require("../package.json");
 
 // Helper to create mock Request
 function createRequest(body) {
@@ -32,7 +36,7 @@ describe("tool registration and tools/list", () => {
   it("registers and lists tools", async () => {
     const app = createServer();
 
-    const greet = ({ name }) => `Hello, ${name}!`;
+    const greet = (_ctx, { name }) => `Hello, ${name}!`;
     greet.description = "Greets a person";
     greet.input = {
       name: T.string({ required: true, description: "Name to greet" }),
@@ -155,7 +159,7 @@ describe("tools/call", () => {
   it("calls tool with string return", async () => {
     const app = createServer();
 
-    const greet = ({ name }) => `Hello, ${name}!`;
+    const greet = (_ctx, { name }) => `Hello, ${name}!`;
     greet.input = { name: T.string({ required: true }) };
 
     app.tool("greet", greet);
@@ -207,7 +211,7 @@ describe("tools/call", () => {
   it("calls async tool handler", async () => {
     const app = createServer();
 
-    const asyncTool = async ({ delay }) => {
+    const asyncTool = async (_ctx, { delay }) => {
       await new Promise((resolve) => setTimeout(resolve, delay));
       return `Completed after ${delay}ms`;
     };
@@ -297,10 +301,10 @@ describe("tools/call", () => {
     expect(data.error.message).toContain('Tool "nonexistent" not found');
   });
 
-  it("throws if arguments are missing", async () => {
+  it("handles missing arguments gracefully with empty object fallback", async () => {
     const app = createServer();
 
-    const tool = () => "result";
+    const tool = (_ctx, args) => JSON.stringify(args);
     tool.input = {};
     app.tool("test", tool);
 
@@ -316,14 +320,15 @@ describe("tools/call", () => {
     const response = await app.fetch(request);
     const data = await response.json();
 
-    expect(data.error).toBeDefined();
-    expect(data.error.message).toContain("Tool arguments are required");
+    expect(data.error).toBeUndefined();
+    expect(data.result).toBeDefined();
+    expect(data.result.content[0].text).toBe("{}");
   });
 
   it("sanitizes input arguments (prototype pollution)", async () => {
     const app = createServer();
 
-    const tool = (args) => {
+    const tool = (_ctx, args) => {
       // Check if __proto__ is an own property (should be false after sanitization)
       return { hasProto: Object.hasOwnProperty.call(args, "__proto__") };
     };
@@ -434,7 +439,7 @@ describe("resources/read", () => {
   it("reads template resource with parameter extraction", async () => {
     const app = createServer();
 
-    const userResource = (params) => {
+    const userResource = (_ctx, params) => {
       // Handler receives params object, extract userId from it
       const userId = params?.userId || "unknown";
       return `User: ${userId}`;
@@ -517,7 +522,7 @@ describe("resources/read", () => {
   it("allows custom URI scheme templates with parameter extraction", async () => {
     const app = createServer();
 
-    const userResource = (params) => {
+    const userResource = (_ctx, params) => {
       const userId = params?.userId || "unknown";
       return `User ID: ${userId}`;
     };
@@ -626,7 +631,7 @@ describe("resources/read", () => {
   it("detects path traversal in custom scheme with template params", async () => {
     const app = createServer();
 
-    const userResource = (params) => {
+    const userResource = (_ctx, params) => {
       const userId = params?.userId || "unknown";
       return `User ID: ${userId}`;
     };
@@ -800,7 +805,7 @@ describe("prompts/list", () => {
   it("lists prompts with arguments", async () => {
     const app = createServer();
 
-    const codeReview = ({ code }) => `Review: ${code}`;
+    const codeReview = (_ctx, { code }) => `Review: ${code}`;
     codeReview.description = "Code review prompt";
     codeReview.input = {
       code: T.string({ required: true, description: "Code to review" }),
@@ -836,7 +841,7 @@ describe("prompts/get", () => {
   it("gets prompt with string return", async () => {
     const app = createServer();
 
-    const simplePrompt = ({ topic }) => `Tell me about ${topic}`;
+    const simplePrompt = (_ctx, { topic }) => `Tell me about ${topic}`;
     simplePrompt.input = { topic: T.string({ required: true }) };
 
     app.prompt("simple", simplePrompt);
@@ -1115,7 +1120,7 @@ describe("initialize", () => {
     expect(data.result.capabilities).toBeDefined();
     expect(data.result.serverInfo).toBeDefined();
     expect(data.result.serverInfo.name).toBe("@mctx-ai/app");
-    expect(data.result.serverInfo.version).toBe("0.3.0");
+    expect(data.result.serverInfo.version).toBe(packageVersion);
   });
 
   it("includes instructions when provided", async () => {
@@ -1403,7 +1408,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to tool handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const whoami = (_args, _ask, ctx) => ctx.userId ?? "anonymous";
+    const whoami = (ctx, _args, _ask) => ctx.userId ?? "anonymous";
     whoami.input = {};
     app.tool("whoami", whoami);
 
@@ -1426,7 +1431,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to tool handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const whoami = (_args, _ask, ctx) => (ctx.userId === undefined ? "no-user" : ctx.userId);
+    const whoami = (ctx, _args, _ask) => (ctx.userId === undefined ? "no-user" : ctx.userId);
     whoami.input = {};
     app.tool("whoami", whoami);
 
@@ -1446,7 +1451,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to resource handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const profileResource = (_params, _ask, ctx) => `profile:${ctx.userId ?? "anonymous"}`;
+    const profileResource = (ctx, _params, _ask) => `profile:${ctx.userId ?? "anonymous"}`;
     profileResource.mimeType = "text/plain";
     app.resource("docs://profile", profileResource);
 
@@ -1469,7 +1474,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to resource handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const profileResource = (_params, _ask, ctx) =>
+    const profileResource = (ctx, _params, _ask) =>
       ctx.userId === undefined ? "no-user" : ctx.userId;
     profileResource.mimeType = "text/plain";
     app.resource("docs://profile", profileResource);
@@ -1490,7 +1495,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to prompt handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const greetPrompt = (_args, _ask, ctx) => `Hello, ${ctx.userId ?? "stranger"}!`;
+    const greetPrompt = (ctx, _args, _ask) => `Hello, ${ctx.userId ?? "stranger"}!`;
     greetPrompt.input = {};
     app.prompt("greet", greetPrompt);
 
@@ -1513,7 +1518,7 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to prompt handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const greetPrompt = (_args, _ask, ctx) =>
+    const greetPrompt = (ctx, _args, _ask) =>
       ctx.userId === undefined ? "no-user" : `Hello, ${ctx.userId}!`;
     greetPrompt.input = {};
     app.prompt("greet", greetPrompt);
@@ -1534,8 +1539,8 @@ describe("ctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("two-parameter tool handler continues to work without modification", async () => {
     const app = createServer();
 
-    // Declares only (args) — no ask or ctx param
-    const echo = ({ message }) => message;
+    // Declares only (ctx, args) — no ask param
+    const echo = (_ctx, { message }) => message;
     echo.input = { message: { type: "string" } };
     app.tool("echo", echo);
 

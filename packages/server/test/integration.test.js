@@ -23,7 +23,7 @@ describe("full server integration", () => {
     });
 
     // Register tool
-    const calculate = ({ operation, a, b }) => {
+    const calculate = (_ctx, { operation, a, b }) => {
       switch (operation) {
         case "add":
           return a + b;
@@ -125,7 +125,7 @@ describe("full server integration", () => {
     const app = createServer();
 
     // Register tool
-    const calculate = ({ operation, a, b }) => {
+    const calculate = (_ctx, { operation, a, b }) => {
       switch (operation) {
         case "add":
           return a + b;
@@ -157,7 +157,7 @@ describe("full server integration", () => {
     app.resource("https:/example.com/docs/calculator", docsResource);
 
     // Register template resource (with canonicalized URI - single slash after scheme)
-    const historyResource = ({ operationId }) => {
+    const historyResource = (_ctx, { operationId }) => {
       return JSON.stringify({
         id: operationId,
         operation: "add",
@@ -170,7 +170,7 @@ describe("full server integration", () => {
     app.resource("https:/example.com/history/{operationId}", historyResource);
 
     // Register prompt
-    const mathPrompt = ({ problem }) => {
+    const mathPrompt = (_ctx, { problem }) => {
       return conversation(({ user, ai }) => [
         user.say(`Solve this math problem: ${problem}`),
         ai.say("I can help with that. What operation do you need?"),
@@ -608,7 +608,7 @@ describe("channel events end-to-end", () => {
   it("tool handler calling ctx.emit() produces X-Mctx-Event header on response", async () => {
     const app = createServer();
 
-    const emitTool = (_args, _ask, ctx) => {
+    const emitTool = (ctx, _args, _ask) => {
       ctx.emit("Task started", { eventType: "task_status", meta: { step: "begin" } });
       return "done";
     };
@@ -640,7 +640,7 @@ describe("channel events end-to-end", () => {
   it("tool handler calling ctx.cancel() produces X-Mctx-Cancel header on response", async () => {
     const app = createServer();
 
-    const cancelTool = (_args, _ask, ctx) => {
+    const cancelTool = (ctx, _args, _ask) => {
       const eventId = ctx.emit("Scheduled task", { deliverAt: "2026-04-01T12:00:00Z" });
       ctx.cancel(eventId);
       return "cancelled";
@@ -672,7 +672,7 @@ describe("channel events end-to-end", () => {
   it("X-Mctx-Event headers survive on error response when tool throws after emitting", async () => {
     const app = createServer();
 
-    const throwAfterEmitTool = (_args, _ask, ctx) => {
+    const throwAfterEmitTool = (ctx, _args, _ask) => {
       ctx.emit("Before failure", { eventType: "warning" });
       throw new Error("Tool failed after emit");
     };

@@ -25,7 +25,7 @@ export interface Server {
    *
    * @example
    * ```typescript
-   * server.tool('add', (args: { a: number; b: number }) => {
+   * server.tool('add', (ctx, args: { a: number; b: number }) => {
    *   return args.a + args.b;
    * });
    * ```
@@ -33,7 +33,7 @@ export interface Server {
    * @example
    * // Generator tool with progress tracking
    * ```typescript
-   * server.tool('migrate', function* (args: { sourceDb: string; targetDb: string }) {
+   * server.tool('migrate', function* (ctx, args: { sourceDb: string; targetDb: string }) {
    *   const step = createProgress(5);
    *   yield step(); // Progress: 1/5
    *   // ... do work
@@ -54,12 +54,12 @@ export interface Server {
    * @example
    * ```typescript
    * // Static resource
-   * server.resource('db://customers/schema', () => {
+   * server.resource('db://customers/schema', (ctx) => {
    *   return JSON.stringify({ ... });
    * });
    *
    * // Dynamic resource with template
-   * server.resource('db://customers/{id}', (params) => {
+   * server.resource('db://customers/{id}', (ctx, params) => {
    *   return getCustomer(params.id);
    * });
    * ```
@@ -76,7 +76,7 @@ export interface Server {
    *
    * @example
    * ```typescript
-   * server.prompt('code-review', (args: { code: string }) => {
+   * server.prompt('code-review', (ctx, args: { code: string }) => {
    *   return conversation(({ user }) => [
    *     user.say("Review this code:"),
    *     user.say(args.code),
@@ -135,7 +135,7 @@ export interface ServerOptions {
  *   instructions: "You help developers debug CI pipelines..."
  * });
  *
- * server.tool('greet', (args: { name: string }) => {
+ * server.tool('greet', (ctx, args: { name: string }) => {
  *   return `Hello, ${args.name}!`;
  * });
  *
@@ -185,7 +185,7 @@ export interface ChannelEventOptions {
  * @example
  * ```typescript
  * // In a tool handler — use ctx.emit
- * function myTool(args: { name: string }, ask, ctx) {
+ * function myTool(ctx, args: { name: string }, ask) {
  *   const eventId = ctx.emit("Processing started", { eventType: "status", meta: { name: args.name } });
  *   // eventId can be used later with ctx.cancel(eventId)
  *   return "done";
@@ -202,7 +202,7 @@ export type EmitFunction = (content: string, options?: ChannelEventOptions) => s
  * @example
  * ```typescript
  * // In a tool handler — use ctx.cancel
- * function myTool(args: { eventId: string }, ask, ctx) {
+ * function myTool(ctx, args: { eventId: string }, ask) {
  *   ctx.cancel(args.eventId);
  *   return "cancelled";
  * }
@@ -215,52 +215,6 @@ export type CancelFunction = (eventId: string) => void;
  */
 export declare const META_KEY_PATTERN: RegExp;
 
-/**
- * Creates a channel emit function bound to the given response Headers object.
- *
- * Each emit() call appends one X-Mctx-Event header with one JSON event object.
- * The dispatch worker reads these headers and writes events to D1.
- *
- * Returns a no-op function when responseHeaders is not provided or lacks an
- * append method.
- *
- * @param responseHeaders - The Response Headers object to append events to
- * @returns Synchronous emit function returning an eventId string
- *
- * @example
- * ```typescript
- * import { createEmit } from '@mctx-ai/app';
- *
- * const responseHeaders = new Headers();
- * const emit = createEmit(responseHeaders);
- * const eventId = emit("Something happened", { eventType: "alert", meta: { severity: "high" } });
- * ```
- */
-export declare function createEmit(responseHeaders: Headers | null | undefined): EmitFunction;
-
-/**
- * Creates a channel cancel function bound to the given response Headers object.
- *
- * Each cancel() call appends one X-Mctx-Cancel header with the eventId as a
- * plain string value. The dispatch worker reads these headers and cancels
- * the matching pending events in D1.
- *
- * Returns a no-op function when responseHeaders is not provided or lacks an
- * append method.
- *
- * @param responseHeaders - The Response Headers object to append cancellations to
- * @returns Synchronous cancel function
- *
- * @example
- * ```typescript
- * import { createCancel } from '@mctx-ai/app';
- *
- * const responseHeaders = new Headers();
- * const cancel = createCancel(responseHeaders);
- * cancel(eventId);
- * ```
- */
-export declare function createCancel(responseHeaders: Headers | null | undefined): CancelFunction;
 
 // ============================================================================
 // Context Types
@@ -298,6 +252,7 @@ export interface McpContext {
  * Tool handler function (non-generator).
  * Receives arguments and optional ask function for LLM sampling.
  *
+ * @param ctx - McpContext with userId, emit, and cancel
  * @param args - Tool arguments (validated against handler.input schema)
  * @param ask - Optional LLM sampling function (null if not supported)
  * @returns Tool result (string, object, or Promise thereof)
@@ -332,7 +287,7 @@ export interface ToolAnnotations {
 }
 
 export type ToolHandler = {
-  (args: Record<string, any>, ask?: AskFunction | null, ctx?: McpContext): any | Promise<any>;
+  (ctx: McpContext, args: Record<string, any>, ask?: AskFunction | null): any | Promise<any>;
   /** Tool description for documentation */
   description?: string;
   /** Input schema definition using T types */
@@ -347,6 +302,7 @@ export type ToolHandler = {
  * Generator tool handler function (for progress tracking).
  * Yields progress notifications and returns final result.
  *
+ * @param ctx - McpContext with userId, emit, and cancel
  * @param args - Tool arguments
  * @param ask - Optional LLM sampling function
  * @yields Progress notifications or intermediate values
@@ -354,7 +310,7 @@ export type ToolHandler = {
  *
  * @example
  * ```typescript
- * function* migrate(args: { tables: string[] }): Generator<ProgressNotification, string> {
+ * function* migrate(ctx: McpContext, args: { tables: string[] }): Generator<ProgressNotification, string> {
  *   const step = createProgress(args.tables.length);
  *   for (const table of args.tables) {
  *     yield step();
@@ -366,9 +322,9 @@ export type ToolHandler = {
  */
 export type GeneratorToolHandler = {
   (
+    ctx: McpContext,
     args: Record<string, any>,
     ask?: AskFunction | null,
-    ctx?: McpContext,
   ): Generator<any, any, any> | AsyncGenerator<any, any, any>;
   description?: string;
   input?: Record<string, SchemaDefinition>;
@@ -381,12 +337,13 @@ export type GeneratorToolHandler = {
  * Resource handler function.
  * Returns resource content (string, binary data, or object).
  *
+ * @param ctx - McpContext with userId, emit, and cancel
  * @param params - Extracted URI template parameters (e.g., { id: '123' })
  * @param ask - Optional LLM sampling function
  * @returns Resource content
  */
 export type ResourceHandler = {
-  (params: Record<string, string>, ask?: AskFunction | null, ctx?: McpContext): any | Promise<any>;
+  (ctx: McpContext, params: Record<string, string>, ask?: AskFunction | null): any | Promise<any>;
   /** Resource name for display */
   name?: string;
   /** Resource description */
@@ -399,15 +356,16 @@ export type ResourceHandler = {
  * Prompt handler function.
  * Returns messages for LLM conversation or a conversation result.
  *
+ * @param ctx - McpContext with userId, emit, and cancel
  * @param args - Prompt arguments
  * @param ask - Optional LLM sampling function
  * @returns Prompt messages (string, conversation result, or message array)
  */
 export type PromptHandler = {
   (
+    ctx: McpContext,
     args: Record<string, any>,
     ask?: AskFunction | null,
-    ctx?: McpContext,
   ): string | ConversationResult | Message[] | Promise<string | ConversationResult | Message[]>;
   /** Prompt description */
   description?: string;
@@ -535,9 +493,9 @@ export interface NumberOptions {
   enum?: number[];
   /** Default value */
   default?: number;
-  /** Minimum value (maps to 'minimum') */
+  /** Maps to JSON Schema 'minimum' */
   min?: number;
-  /** Maximum value (maps to 'maximum') */
+  /** Maps to JSON Schema 'maximum' */
   max?: number;
 }
 

@@ -34,14 +34,15 @@ const packageJson = {
       "esbuild index.js --bundle --minify --platform=node --format=esm --outfile=dist/index.js",
   },
   dependencies: {
-    "@mctx-ai/app": `^${version}`,
+    "@mctx-ai/app": `${version}`,
   },
   devDependencies: {
-    "@mctx-ai/dev": `^${version}`,
-    esbuild: "^0.27.0",
+    "@mctx-ai/dev": `${version}`,
+    esbuild: "0.27.0",
   },
   engines: {
     node: ">=22.0.0",
+    npm: ">=10.8.0",
   },
 };
 
@@ -55,7 +56,7 @@ const app = createServer({
 });
 
 // A simple greeting tool
-function greet({ name }) {
+function greet(ctx, { name }) {
   return \`Hello, \${name}! Welcome to mctx.\`;
 }
 greet.description = 'Greet someone by name';
@@ -77,6 +78,12 @@ dist/
 `;
 
 writeFileSync(join(projectName, ".gitignore"), gitignore);
+
+// Generate .npmrc
+const npmrc = `save-exact=true
+`;
+
+writeFileSync(join(projectName, ".npmrc"), npmrc);
 
 // Generate README.md
 const readme = `# ${projectName}
@@ -100,20 +107,33 @@ npx mctx-dev index.js --port 8080
 
 ## Add a Tool
 
-\`\`\`javascript
-import { T } from '@mctx-ai/app';
-import app from './index.js';
+Create a separate file for your handler (e.g. \`tools/my-tool.js\`):
 
-// Handlers receive ({ field1, field2 }, ask):
+\`\`\`javascript
+// tools/my-tool.js
+import { T } from '@mctx-ai/app';
+
+// Handlers receive (ctx, { field1, field2 }, ask):
+//   ctx                — request context
+//                          ctx.userId — stable, opaque user identifier (undefined if unauthenticated)
+//                          ctx.emit   — emit a channel event (returns eventId)
+//                          ctx.cancel — cancel a previously emitted scheduled event
 //   { field1, field2 } — destructured validated input fields
 //   ask                — LLM sampling function (null if client doesn't support it)
-const myTool = ({ input }) => {
+export function myTool(ctx, { input }) {
   return \`Result: \${input}\`;
-};
+}
 myTool.description = 'What this tool does';
 myTool.input = {
   input: T.string({ required: true, description: 'Input description' }),
 };
+\`\`\`
+
+Then import and register it in \`index.js\`:
+
+\`\`\`javascript
+// index.js
+import { myTool } from './tools/my-tool.js';
 app.tool('my-tool', myTool);
 \`\`\`
 

@@ -104,13 +104,19 @@ function formatError(error, rpcRequest) {
     formatted += `${stack}\n`;
   }
 
-  // Add helpful hints for common errors
-  if (error.message.includes("not found")) {
-    formatted += `\n${colors.yellow}Hint:${colors.reset} Check if the ${rpcRequest.method.split("/")[0]} is registered in your server.\n`;
-  } else if (error.message.includes("required")) {
-    formatted += `\n${colors.yellow}Hint:${colors.reset} Check your request parameters. Some fields might be missing.\n`;
-  } else if (error.message.includes("undefined")) {
-    formatted += `\n${colors.yellow}Hint:${colors.reset} Did you forget to return a value from your handler?\n`;
+  // Add helpful hints scoped to MCP handler errors only (e.g. "Tool "greet" not found")
+  const isMcpHandlerError =
+    error.message.startsWith('Tool "') ||
+    error.message.startsWith('Prompt "') ||
+    error.message.startsWith('Resource "');
+  if (isMcpHandlerError) {
+    if (error.message.includes("not found")) {
+      formatted += `\n${colors.yellow}Hint:${colors.reset} Check if the ${rpcRequest.method.split("/")[0]} is registered in your server.\n`;
+    } else if (error.message.includes("required")) {
+      formatted += `\n${colors.yellow}Hint:${colors.reset} Check your request parameters. Some fields might be missing.\n`;
+    } else if (error.message.includes("undefined")) {
+      formatted += `\n${colors.yellow}Hint:${colors.reset} Did you forget to return a value from your handler?\n`;
+    }
   }
 
   return formatted;
@@ -179,31 +185,39 @@ export async function startDevServer(entryUrl, port) {
 
   // Load the user's app
   async function loadApp() {
-    try {
-      // Clear module from cache for hot reload
-      if (entryUrl.startsWith("file://")) {
-        const modulePath = entryUrl;
-        // Add cache-busting query parameter for ES modules
-        const cacheBustedUrl = `${modulePath}?t=${Date.now()}`;
-        appModule = await import(cacheBustedUrl);
-      } else {
-        appModule = await import(entryUrl);
-      }
-
-      app = appModule.default;
-
-      if (!app) {
-        throw new Error("Entry file must have a default export (the app instance)");
-      }
-
-      if (typeof app.fetch !== "function") {
-        throw new Error("App must have a fetch method (created via createServer())");
-      }
-
-      return true;
-    } catch (error) {
-      throw error;
+    // Clear module from cache for hot reload
+    if (entryUrl.startsWith("file://")) {
+      const modulePath = entryUrl;
+      // Add cache-busting query parameter for ES modules
+      const cacheBustedUrl = `${modulePath}?t=${Date.now()}`;
+      appModule = await import(cacheBustedUrl);
+    } else {
+      appModule = await import(entryUrl);
     }
+
+    app = appModule.default;
+
+    // Warn if the module has named exports alongside the default export.
+    // Module-level state in named exports persists across hot reloads because
+    // cache-busting only re-evaluates the module — it does not reset shared
+    // state that callers hold references to.
+    const namedExports = Object.keys(appModule).filter((k) => k !== "default");
+    if (namedExports.length > 0) {
+      logFramework(
+        `[warn] Module has non-default exports: ${namedExports.join(", ")}. Module-level state in these exports will persist across hot reloads.`,
+        colors.yellow,
+      );
+    }
+
+    if (!app) {
+      throw new Error("Entry file must have a default export (the app instance)");
+    }
+
+    if (typeof app.fetch !== "function") {
+      throw new Error("App must have a fetch method (created via createServer())");
+    }
+
+    return true;
   }
 
   // Initial load (Fix #2: handle syntax errors gracefully)
@@ -477,8 +491,8 @@ export async function startDevServer(entryUrl, port) {
         // Slow tool warning: if tools/call took >1000ms
         if (rpcRequest.method === "tools/call" && elapsed > 1000) {
           const toolName = rpcRequest.params?.name || "unknown";
-          log(
-            `${colors.yellow}⚠️  Slow tool: ${toolName} took ${elapsed}ms${colors.reset}`,
+          logFramework(
+            `[warn] Slow tool: ${toolName} took ${elapsed}ms`,
             colors.yellow,
           );
         }
@@ -542,7 +556,7 @@ export async function startDevServer(entryUrl, port) {
       .join("\n");
 
     console.log(`
-${colors.bright}${colors.cyan}🔧 mctx dev server running at http://localhost:${port}${colors.reset}
+${colors.bright}${colors.cyan}[mctx-dev] Server running at http://localhost:${port}${colors.reset}
 
 ${colors.bright}Test with curl:${colors.reset}
   ${colors.dim}curl -X POST http://localhost:${port} \\

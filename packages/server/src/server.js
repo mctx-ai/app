@@ -5,6 +5,7 @@
  * app with tool/resource/prompt registration and JSON-RPC 2.0 routing.
  */
 
+import { createRequire } from "module";
 import { buildInputSchema } from "./types.js";
 import { matchUri, isTemplate } from "./uri.js";
 import { PROGRESS_DEFAULTS } from "./progress.js";
@@ -20,6 +21,9 @@ import {
 } from "./security.js";
 import { createAsk } from "./sampling.js";
 import { createEmit, createCancel } from "./channel.js";
+
+const require = createRequire(import.meta.url);
+const { version } = require("../package.json");
 
 /**
  * HTTP Security Headers
@@ -152,9 +156,9 @@ export function createServer(options = {}) {
   /**
    * Register a tool
    * @param {string} name - Tool name
-   * @param {Function} handler - Tool handler function. Called as handler(params, ask, ctx) where
-   *   params is the validated input, ask is the sampling function (or undefined),
-   *   and ctx is the request context with optional userId.
+   * @param {Function} handler - Tool handler function. Called as handler(ctx, params, ask) where
+   *   ctx is the request context with optional userId, params is the validated input,
+   *   and ask is the sampling function (or undefined).
    * @returns {Object} App instance (for chaining)
    */
   function tool(name, handler) {
@@ -169,9 +173,9 @@ export function createServer(options = {}) {
   /**
    * Register a resource
    * @param {string} uri - Resource URI (may contain {param} templates)
-   * @param {Function} handler - Resource handler function. Called as handler(params, ask, ctx) where
-   *   params contains URI template variables, ask is the sampling function (or undefined),
-   *   and ctx is the request context with optional userId.
+   * @param {Function} handler - Resource handler function. Called as handler(ctx, params, ask) where
+   *   ctx is the request context with optional userId, params contains URI template variables,
+   *   and ask is the sampling function (or undefined).
    * @returns {Object} App instance (for chaining)
    */
   function resource(uri, handler) {
@@ -186,9 +190,9 @@ export function createServer(options = {}) {
   /**
    * Register a prompt
    * @param {string} name - Prompt name
-   * @param {Function} handler - Prompt handler function. Called as handler(params, ask, ctx) where
-   *   params is the validated input, ask is the sampling function (or undefined),
-   *   and ctx is the request context with optional userId.
+   * @param {Function} handler - Prompt handler function. Called as handler(ctx, params, ask) where
+   *   ctx is the request context with optional userId, params is the validated input,
+   *   and ask is the sampling function (or undefined).
    * @returns {Object} App instance (for chaining)
    */
   function prompt(name, handler) {
@@ -248,13 +252,9 @@ export function createServer(options = {}) {
       throw new Error(`Tool "${name}" not found`);
     }
 
-    // Validate arguments exist
-    if (args === undefined || args === null) {
-      throw new Error("Tool arguments are required");
-    }
-
-    // Sanitize arguments to prevent prototype pollution
-    const sanitizedArgs = sanitizeInput(args);
+    // Sanitize arguments to prevent prototype pollution; fall back to empty object
+    // when args is null/undefined (matches how handlePromptsGet handles it)
+    const sanitizedArgs = sanitizeInput(args || {});
 
     try {
       // Create ask function for sampling support when client advertises capability
@@ -277,7 +277,7 @@ export function createServer(options = {}) {
       }
 
       // Execute regular handler (support both sync and async)
-      const result = await handler(sanitizedArgs, ask, ctx);
+      const result = await handler(ctx, sanitizedArgs, ask);
 
       // Wrap result based on type
       if (typeof result === "string") {
@@ -312,18 +312,12 @@ export function createServer(options = {}) {
    * @returns {Promise<Object>} Tool result
    */
   async function executeGeneratorHandler(handler, args, ask, meta, ctx = {}) {
-    const progressToken = meta.progressToken;
     const startTime = Date.now();
     let yieldCount = 0;
 
-    // NOTE: In HTTP mode, progress notifications are collected but can't be sent
-    // until the request completes. In a streaming transport (WebSocket/SSE),
-    // these would be sent immediately as notifications.
-    const progressNotifications = [];
-
     try {
       // Execute generator using iterator protocol to capture return value
-      const iterator = handler(args, ask, ctx);
+      const iterator = handler(ctx, args, ask);
       let iterResult = await iterator.next();
 
       while (!iterResult.done) {
@@ -340,19 +334,6 @@ export function createServer(options = {}) {
           throw new Error(
             `Generator exceeded maximum execution time (${PROGRESS_DEFAULTS.maxExecutionTime}ms)`,
           );
-        }
-
-        // Check if yielded value is a progress notification
-        const value = iterResult.value;
-        if (value && typeof value === "object" && value.type === "progress") {
-          // Store progress notification
-          // In streaming mode, would send via progressToken
-          if (progressToken) {
-            progressNotifications.push({
-              progressToken,
-              ...value,
-            });
-          }
         }
 
         // Get next value
@@ -491,7 +472,7 @@ export function createServer(options = {}) {
       const sanitizedParams = sanitizeInput(extractedParams);
 
       // Execute handler with sanitized params, ask, and context
-      const result = await handler(sanitizedParams, ask, ctx);
+      const result = await handler(ctx, sanitizedParams, ask);
 
       // Wrap result as resource content
       const mimeType = handler.mimeType || "text/plain";
@@ -596,7 +577,7 @@ export function createServer(options = {}) {
       const sanitizedArgs = sanitizeInput(args || {});
 
       // Execute handler with sanitized args and context
-      const result = await handler(sanitizedArgs, ask, ctx);
+      const result = await handler(ctx, sanitizedArgs, ask);
 
       // If handler returns a string, wrap as user message
       if (typeof result === "string") {
@@ -744,7 +725,7 @@ export function createServer(options = {}) {
       capabilities,
       serverInfo: {
         name: "@mctx-ai/app",
-        version: "0.3.0",
+        version,
       },
     };
 
@@ -847,8 +828,7 @@ export function createServer(options = {}) {
         return handleLoggingSetLevel(params);
 
       default: {
-        const error = new Error("Method not found");
-        error.code = -32601;
+        const error = { code: -32601, message: `Method not found: ${method}` };
         throw error;
       }
     }

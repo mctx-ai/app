@@ -5,13 +5,13 @@
 <p align="center">Scaffold an MCP server in one command.</p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/create-mctx-app"><img src="https://img.shields.io/npm/v/create-mctx-app" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/create-mctx-server"><img src="https://img.shields.io/npm/v/create-mctx-server" alt="npm version" /></a>
 </p>
 
 ---
 
 ```bash
-npm create mctx-app my-app
+npm create mctx-server my-app
 ```
 
 ## What you get
@@ -27,7 +27,7 @@ npm create mctx-app my-app
 ## Get running
 
 ```bash
-npm create mctx-app my-app
+npm create mctx-server my-app
 cd my-app
 npm install
 npm run dev

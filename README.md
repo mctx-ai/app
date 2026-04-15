@@ -252,7 +252,7 @@ Levels follow RFC 5424: `debug`, `info`, `notice`, `warning`, `error`, `critical
 
 ## Deploy
 
-Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai). Your app goes live — you keep 80% of every subscription.
+Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai). Your server goes live — you keep 80% of every subscription.
 
 Full deployment guide at [docs.mctx.ai](https://docs.mctx.ai).
 
@@ -267,7 +267,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) and [GitHub Issues](https://github.com/
 ## Links
 
 - [Documentation](https://docs.mctx.ai)
-- [Example App](https://github.com/mctx-ai/example-app)
+- [Example Server](https://github.com/mctx-ai/example-app)
 - [npm: @mctx-ai/app](https://www.npmjs.com/package/@mctx-ai/app)
 
 ---

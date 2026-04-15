@@ -26,7 +26,7 @@ mkdirSync(projectName, { recursive: true });
 const packageJson = {
   name: projectName,
   version: "0.0.1",
-  description: "An App built with @mctx-ai/app",
+  description: "An MCP server built with @mctx-ai/app",
   type: "module",
   main: "dist/index.js",
   scripts: {
@@ -89,7 +89,7 @@ writeFileSync(join(projectName, ".npmrc"), npmrc);
 // Generate README.md
 const readme = `# ${projectName}
 
-An App built with [@mctx-ai/app](https://github.com/mctx-ai/app).
+An MCP server built with [@mctx-ai/app](https://github.com/mctx-ai/app).
 
 ## Development
 

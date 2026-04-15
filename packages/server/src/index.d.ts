@@ -17,7 +17,6 @@
 export interface Server {
   /**
    * Register a tool handler.
-   * Tools can be synchronous or asynchronous functions, or generator functions for progress tracking.
    *
    * @param name - Tool name (must be unique)
    * @param handler - Tool handler function
@@ -25,23 +24,12 @@ export interface Server {
    *
    * @example
    * ```typescript
-   * server.tool('add', (mctx, args: { a: number; b: number }) => {
-   *   return args.a + args.b;
-   * });
-   * ```
-   *
-   * @example
-   * // Generator tool with progress tracking
-   * ```typescript
-   * server.tool('migrate', function* (mctx, args: { sourceDb: string; targetDb: string }) {
-   *   const step = createProgress(5);
-   *   yield step(); // Progress: 1/5
-   *   // ... do work
-   *   return "Migration complete";
+   * server.tool('add', (mctx, req: { a: number; b: number }, res) => {
+   *   res.send(req.a + req.b);
    * });
    * ```
    */
-  tool(name: string, handler: ToolHandler | GeneratorToolHandler): Server;
+  tool(name: string, handler: ToolHandler): Server;
 
   /**
    * Register a resource handler.
@@ -54,13 +42,13 @@ export interface Server {
    * @example
    * ```typescript
    * // Static resource
-   * server.resource('db://customers/schema', (mctx) => {
-   *   return JSON.stringify({ ... });
+   * server.resource('db://customers/schema', (mctx, req, res) => {
+   *   res.send(JSON.stringify({ ... }));
    * });
    *
    * // Dynamic resource with template
-   * server.resource('db://customers/{id}', (mctx, params) => {
-   *   return getCustomer(params.id);
+   * server.resource('db://customers/{id}', (mctx, req, res) => {
+   *   res.send(getCustomer(req.id));
    * });
    * ```
    */
@@ -76,11 +64,11 @@ export interface Server {
    *
    * @example
    * ```typescript
-   * server.prompt('code-review', (mctx, args: { code: string }) => {
-   *   return conversation(({ user }) => [
+   * server.prompt('code-review', (mctx, req: { code: string }, res) => {
+   *   res.send(conversation(({ user }) => [
    *     user.say("Review this code:"),
-   *     user.say(args.code),
-   *   ]);
+   *     user.say(req.code),
+   *   ]));
    * });
    * ```
    */
@@ -135,8 +123,8 @@ export interface ServerOptions {
  *   instructions: "You help developers debug CI pipelines..."
  * });
  *
- * server.tool('greet', (mctx, args: { name: string }) => {
- *   return `Hello, ${args.name}!`;
+ * server.tool('greet', (mctx, req: { name: string }, res) => {
+ *   res.send(`Hello, ${req.name}!`);
  * });
  *
  * export default { fetch: server.fetch };
@@ -145,83 +133,11 @@ export interface ServerOptions {
 export function createServer(options?: ServerOptions): Server;
 
 // ============================================================================
-// Channel Types
-// ============================================================================
-
-/**
- * Options for the emit() function.
- */
-export interface ChannelEventOptions {
-  /** Override the event type (default: 'channel') */
-  eventType?: string;
-  /**
-   * Key/value metadata (keys must match /^[a-zA-Z0-9_]+$/).
-   * Serialized as `metadata` in the X-Mctx-Event JSON header per dispatch worker contract.
-   */
-  meta?: Record<string, string>;
-  /**
-   * ISO timestamp string for scheduled delivery.
-   * Must be a non-empty string. Silently ignored if invalid.
-   */
-  deliverAt?: string;
-  /**
-   * Correlation key for deduplication and cancellation.
-   * Must be a non-empty string matching /^[a-zA-Z0-9_]+$/.
-   * Silently ignored if invalid.
-   *
-   * This is a developer-supplied idempotency identifier (e.g. "deploy_123"),
-   * not an event ID reference. UUIDs are NOT valid keys because they contain
-   * hyphens (e.g. "550e8400-e29b-41d4-a716-446655440000" fails the pattern).
-   */
-  key?: string;
-}
-
-/**
- * Channel event emission function.
- * Appends an X-Mctx-Event response header with the event JSON.
- * Returns the eventId string synchronously.
- * Returns an empty string on no-op (invalid input or unconfigured).
- *
- * @example
- * ```typescript
- * // In a tool handler — use mctx.emit
- * function myTool(mctx, args: { name: string }, ask) {
- *   const eventId = mctx.emit("Processing started", { eventType: "status", meta: { name: args.name } });
- *   // eventId can be used later with mctx.cancel(eventId)
- *   return "done";
- * }
- * ```
- */
-export type EmitFunction = (content: string, options?: ChannelEventOptions) => string;
-
-/**
- * Channel event cancellation function.
- * Cancels a pending scheduled channel event by its eventId.
- * Appends an X-Mctx-Cancel response header with the eventId.
- *
- * @example
- * ```typescript
- * // In a tool handler — use mctx.cancel
- * function myTool(mctx, args: { eventId: string }, ask) {
- *   mctx.cancel(args.eventId);
- *   return "cancelled";
- * }
- * ```
- */
-export type CancelFunction = (eventId: string) => void;
-
-/**
- * Regex pattern constant for valid metadata keys (/^[a-zA-Z0-9_]+$/).
- */
-export declare const META_KEY_PATTERN: RegExp;
-
-
-// ============================================================================
 // Context Types
 // ============================================================================
 
 /**
- * Request context passed as the third argument to all handler functions.
+ * Request context passed as the first argument to all handler functions.
  * Populated from HTTP headers injected by the mctx dispatch worker.
  */
 export interface ModelContext {
@@ -230,33 +146,76 @@ export interface ModelContext {
    * Undefined when no user ID header is present.
    */
   userId?: string;
+}
+
+// ============================================================================
+// Response Output Port
+// ============================================================================
+
+/**
+ * Response output port passed as the third argument to all handler functions.
+ * Provides methods for sending results, reporting progress, and requesting
+ * LLM completions.
+ */
+export interface Response {
   /**
-   * Channel event emission function for this request.
-   * Appends X-Mctx-Event response headers read by the dispatch worker.
-   * Returns the eventId string synchronously.
+   * Send the handler result.
+   * Captures the result to be returned in the JSON-RPC response.
+   *
+   * @param result - The handler result (string, object, binary, etc.)
+   *
+   * @example
+   * ```typescript
+   * function myTool(mctx, req, res) {
+   *   res.send("done");
+   * }
+   * ```
    */
-  emit: EmitFunction;
+  send(result: any): void;
+
   /**
-   * Channel event cancellation function for this request.
-   * Appends X-Mctx-Cancel response headers read by the dispatch worker.
-   * Cancels a pending scheduled channel event by its eventId.
+   * Report progress for long-running operations.
+   * Sends an MCP progress notification to the client.
+   *
+   * @param current - Current progress value
+   * @param total - Total progress value (optional, for determinate progress)
+   *
+   * @example
+   * ```typescript
+   * async function myTool(mctx, req, res) {
+   *   for (let i = 0; i < 10; i++) {
+   *     await doWork();
+   *     res.progress(i + 1, 10);
+   *   }
+   *   res.send("done");
+   * }
+   * ```
    */
-  cancel: CancelFunction;
+  progress(current: number, total?: number): void;
+
+  /**
+   * Request an LLM completion from the client.
+   * Allows handlers to use LLM-in-the-loop patterns.
+   * Returns null if the client does not support sampling.
+   *
+   * @param prompt - Simple text prompt or advanced sampling options
+   * @returns LLM response content, or null if sampling unsupported
+   *
+   * @example
+   * ```typescript
+   * async function myTool(mctx, req, res) {
+   *   const summary = await res.ask("Summarize: " + req.text);
+   *   res.send(summary);
+   * }
+   * ```
+   */
+  ask: AskFunction | null;
 }
 
 // ============================================================================
 // Handler Types
 // ============================================================================
 
-/**
- * Tool handler function (non-generator).
- * Receives arguments and optional ask function for LLM sampling.
- *
- * @param mctx - ModelContext with userId, emit, and cancel
- * @param args - Tool arguments (validated against handler.input schema)
- * @param ask - Optional LLM sampling function (null if not supported)
- * @returns Tool result (string, object, or Promise thereof)
- */
 /**
  * MCP tool annotation hints.
  * Provides behavioral hints to clients for appropriate UI and permission prompts.
@@ -286,8 +245,25 @@ export interface ToolAnnotations {
   idempotentHint?: boolean;
 }
 
+/**
+ * Tool handler function.
+ * Receives context, request args, and response output port.
+ *
+ * @param mctx - ModelContext with optional userId
+ * @param req - Tool arguments (validated against handler.input schema)
+ * @param res - Response output port: { send, progress, ask }
+ *
+ * @example
+ * ```typescript
+ * function myTool(mctx: ModelContext, req: { name: string }, res: Response) {
+ *   res.send(`Hello, ${req.name}!`);
+ * }
+ * myTool.description = "Greet someone";
+ * myTool.input = { name: T.string({ required: true }) };
+ * ```
+ */
 export type ToolHandler = {
-  (mctx: ModelContext, args: Record<string, any>, ask?: AskFunction | null): any | Promise<any>;
+  (mctx: ModelContext, req: Record<string, any>, res: Response): void | Promise<void>;
   /** Tool description for documentation */
   description?: string;
   /** Input schema definition using T types */
@@ -299,51 +275,22 @@ export type ToolHandler = {
 };
 
 /**
- * Generator tool handler function (for progress tracking).
- * Yields progress notifications and returns final result.
+ * Resource handler function.
+ * Returns resource content via res.send().
  *
- * @param mctx - ModelContext with userId, emit, and cancel
- * @param args - Tool arguments
- * @param ask - Optional LLM sampling function
- * @yields Progress notifications or intermediate values
- * @returns Final tool result
+ * @param mctx - ModelContext with optional userId
+ * @param req - Extracted URI template parameters (e.g., { id: '123' })
+ * @param res - Response output port: { send, progress, ask }
  *
  * @example
  * ```typescript
- * function* migrate(mctx: ModelContext, args: { tables: string[] }): Generator<ProgressNotification, string> {
- *   const step = createProgress(args.tables.length);
- *   for (const table of args.tables) {
- *     yield step();
- *     // ... process table
- *   }
- *   return "Migration complete";
+ * function myResource(mctx: ModelContext, req: { id: string }, res: Response) {
+ *   res.send(getItem(req.id));
  * }
  * ```
  */
-export type GeneratorToolHandler = {
-  (
-    mctx: ModelContext,
-    args: Record<string, any>,
-    ask?: AskFunction | null,
-  ): Generator<any, any, any> | AsyncGenerator<any, any, any>;
-  description?: string;
-  input?: Record<string, SchemaDefinition>;
-  mimeType?: string;
-  /** Behavioral hint annotations for MCP clients */
-  annotations?: ToolAnnotations;
-};
-
-/**
- * Resource handler function.
- * Returns resource content (string, binary data, or object).
- *
- * @param mctx - ModelContext with userId, emit, and cancel
- * @param params - Extracted URI template parameters (e.g., { id: '123' })
- * @param ask - Optional LLM sampling function
- * @returns Resource content
- */
 export type ResourceHandler = {
-  (mctx: ModelContext, params: Record<string, string>, ask?: AskFunction | null): any | Promise<any>;
+  (mctx: ModelContext, req: Record<string, string>, res: Response): void | Promise<void>;
   /** Resource name for display */
   name?: string;
   /** Resource description */
@@ -354,19 +301,27 @@ export type ResourceHandler = {
 
 /**
  * Prompt handler function.
- * Returns messages for LLM conversation or a conversation result.
+ * Returns messages for LLM conversation via res.send().
  *
- * @param mctx - ModelContext with userId, emit, and cancel
- * @param args - Prompt arguments
- * @param ask - Optional LLM sampling function
- * @returns Prompt messages (string, conversation result, or message array)
+ * @param mctx - ModelContext with optional userId
+ * @param req - Prompt arguments
+ * @param res - Response output port: { send, progress, ask }
+ *
+ * @example
+ * ```typescript
+ * function myPrompt(mctx: ModelContext, req: { topic: string }, res: Response) {
+ *   res.send(conversation(({ user }) => [
+ *     user.say(`Tell me about: ${req.topic}`),
+ *   ]));
+ * }
+ * ```
  */
 export type PromptHandler = {
   (
     mctx: ModelContext,
-    args: Record<string, any>,
-    ask?: AskFunction | null,
-  ): string | ConversationResult | Message[] | Promise<string | ConversationResult | Message[]>;
+    req: Record<string, any>,
+    res: Response,
+  ): void | Promise<void>;
   /** Prompt description */
   description?: string;
   /** Input schema definition using T types */
@@ -375,7 +330,7 @@ export type PromptHandler = {
 
 /**
  * LLM sampling function.
- * Allows tools to request AI completions from the client.
+ * Allows handlers to request AI completions from the client via res.ask().
  * Overloaded to accept either a simple string prompt or advanced options.
  *
  * @param prompt - Simple text prompt
@@ -384,13 +339,13 @@ export type PromptHandler = {
  * @example
  * ```typescript
  * // Simple usage
- * const summary = await ask("Summarize this document: " + doc);
+ * const summary = await res.ask("Summarize this document: " + doc);
  * ```
  *
  * @example
  * // Advanced usage
  * ```typescript
- * const result = await ask({
+ * const result = await res.ask({
  *   messages: [
  *     { role: "user", content: { type: "text", text: "What is the capital of France?" } }
  *   ],
@@ -736,74 +691,6 @@ export interface ConversationHelpers {
 export function conversation(
   builderFn: (helpers: ConversationHelpers) => Message[],
 ): ConversationResult;
-
-// ============================================================================
-// Progress Tracking
-// ============================================================================
-
-/**
- * Progress notification object.
- * Yielded by generator tools to report progress.
- */
-export interface ProgressNotification {
-  type: "progress";
-  /** Current step number (1-indexed) */
-  progress: number;
-  /** Total steps (optional, for determinate progress) */
-  total?: number;
-}
-
-/**
- * Progress step function.
- * Call to generate next progress notification.
- */
-export type StepFunction = () => ProgressNotification;
-
-/**
- * Creates a progress step function for generator-based tools.
- * Each call auto-increments the progress counter.
- *
- * @param total - Total number of steps (optional, for determinate progress)
- * @returns Step function that returns progress notification objects
- *
- * @example
- * ```typescript
- * // Determinate progress (with known total)
- * function* migrate(args: { tables: string[] }) {
- *   const step = createProgress(args.tables.length);
- *   for (const table of args.tables) {
- *     yield step();  // { type: "progress", progress: 1, total: 5 }
- *     await copyTable(table);
- *   }
- *   return "Migration complete";
- * }
- * ```
- *
- * @example
- * ```typescript
- * // Indeterminate progress (no total)
- * function* processQueue() {
- *   const step = createProgress();
- *   while (hasMessages()) {
- *     yield step();  // { type: "progress", progress: 1 }
- *     await processMessage();
- *   }
- *   return "Queue processed";
- * }
- * ```
- */
-export function createProgress(total?: number): StepFunction;
-
-/**
- * Default configuration for generator guardrails.
- * Server uses these to prevent runaway generators.
- */
-export const PROGRESS_DEFAULTS: {
-  /** Maximum execution time in milliseconds (60 seconds) */
-  maxExecutionTime: number;
-  /** Maximum number of yields (10,000) */
-  maxYields: number;
-};
 
 // ============================================================================
 // Logging

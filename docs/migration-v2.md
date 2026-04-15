@@ -1,109 +1,99 @@
 ---
 title: Migrating from v1 to v2
-description: Upgrade guide for @mctx-ai/app v1 to v2. One breaking change, several improvements.
+description: Upgrade guide for @mctx-ai/app v1 to v2. Breaking changes and migration examples.
 ---
 
-v2 has one breaking change: the handler signature reordered context to the first position, Go-style. Everything else is backward-compatible.
+v2 introduces a redesigned handler signature. Instead of returning values and using generator-based progress, handlers now receive an explicit output port (`res`) and call methods on it. Channel events (`emit`/`cancel`) have been removed entirely.
 
 ## Quick upgrade checklist
 
 - [ ] Update `@mctx-ai/app` to `^2.0.0` and `@mctx-ai/dev` to `^2.0.0`
-- [ ] Move the context parameter from the third position to the first in every handler, and rename it `mctx`
-- [ ] Update destructuring patterns — `mctx` is now `(mctx, { name, ...rest })`, not `({ name, ...rest }, ask, ctx)`
-- [ ] Verify any handlers that used `ask` — it moved from second to third position
+- [ ] Rename all handler signatures from `(args, ask, ctx)` or `(mctx, args, ask)` to `(mctx, req, res)`
+- [ ] Replace `return value` with `res.send(value)` in every handler
+- [ ] Replace `yield step()` progress tracking with `res.progress(current, total?)`
+- [ ] Replace the `ask` parameter with `res.ask(prompt)` calls
+- [ ] Remove all `mctx.emit(...)` and `mctx.cancel(...)` calls — channel events no longer exist
 - [ ] If you import `startDevServer` programmatically, update to `import { startDevServer } from '@mctx-ai/dev'`
 
 ---
 
-## Breaking change: handler parameter order
+## Breaking changes
 
-### What changed
+### 1. Handler signature: `(mctx, req, res)`
 
-All handler types — tools, resources, and prompts — now receive `mctx` as the **first** parameter, not the third. This aligns with Go-style context-first conventions and makes it natural to add context-aware behavior without touching parameter positions for `args` or `ask`.
+All handler types — tools, resources, and prompts — now use a three-parameter signature:
 
-**v1 signature (old):**
+- `mctx` — model context: `{ userId?: string }`
+- `req` — validated input fields accessed directly (`req.name`, `req.query`, etc.)
+- `res` — output port with `res.send()`, `res.progress()`, and `res.ask()`
+
+**Before (v1):**
 
 ```
 handler(args, ask, ctx)
 ```
 
-**v2 signature (new):**
+**After (v2):**
 
 ```
-handler(mctx, args, ask)
+handler(mctx, req, res)
 ```
 
-The `mctx` object shape is unchanged: `{ userId, emit, cancel }`.
+### 2. Return values replaced by `res.send()`
+
+Handlers no longer return a value. Call `res.send(result)` to emit the result.
+
+### 3. Generator progress replaced by `res.progress()`
+
+Generator functions (`function*`) and `createProgress` are gone. Call `res.progress(current, total?)` directly.
+
+### 4. `ask` parameter replaced by `res.ask()`
+
+The `ask` parameter is no longer passed as a function argument. Use `res.ask(prompt)` instead.
+
+### 5. Channel events removed
+
+`mctx.emit()` and `mctx.cancel()` have been removed entirely. There is no replacement in v2. Remove all channel event calls from your handlers.
 
 ---
 
-### Tool handlers
+## Migration examples
 
-**v1 — before:**
+### Simple tool
+
+**Before:**
 
 ```js
-const deploy = async ({ environment, version }, ask, ctx) => {
-  const eventId = ctx.emit(`Deploying ${version} to ${environment}`);
-  return { deployed: true, eventId };
+const greet = (mctx, { name }, ask) => {
+  return `Hello, ${name}!`;
 };
-deploy.description = "Deploy a version to an environment";
-deploy.input = {
-  environment: T.string({ required: true }),
-  version: T.string({ required: true }),
-};
-app.tool("deploy", deploy);
+greet.description = "Greet someone by name";
+greet.input = { name: T.string({ required: true }) };
+app.tool("greet", greet);
 ```
 
-**v2 — after:**
+**After:**
 
 ```js
-const deploy = async (mctx, { environment, version }, ask) => {
-  const eventId = mctx.emit(`Deploying ${version} to ${environment}`);
-  return { deployed: true, eventId };
+const greet = (mctx, req, res) => {
+  res.send(`Hello, ${req.name}!`);
 };
-deploy.description = "Deploy a version to an environment";
-deploy.input = {
-  environment: T.string({ required: true }),
-  version: T.string({ required: true }),
-};
-app.tool("deploy", deploy);
-```
-
-Tools that do not use `ask` or `mctx` can omit trailing parameters:
-
-```js
-// Fine in both v1 and v2 — just be explicit about which positional params you want
-const greet = (mctx, { name }) => `Hello, ${name}!`;
+greet.description = "Greet someone by name";
+greet.input = { name: T.string({ required: true }) };
+app.tool("greet", greet);
 ```
 
 ---
 
-### Generator tool handlers (progress tracking)
+### Tool with progress
 
-**v1 — before:**
-
-```js
-function* migrate({ tables }, ask, ctx) {
-  const step = createProgress(tables.length);
-  for (const table of tables) {
-    yield step();
-    ctx.emit(`Migrating table: ${table}`);
-    await copyTable(table);
-  }
-  return "Migration complete";
-}
-migrate.input = { tables: T.array({ items: T.string(), required: true }) };
-app.tool("migrate", migrate);
-```
-
-**v2 — after:**
+**Before:**
 
 ```js
 function* migrate(mctx, { tables }, ask) {
   const step = createProgress(tables.length);
   for (const table of tables) {
     yield step();
-    mctx.emit(`Migrating table: ${table}`);
     await copyTable(table);
   }
   return "Migration complete";
@@ -112,38 +102,55 @@ migrate.input = { tables: T.array({ items: T.string(), required: true }) };
 app.tool("migrate", migrate);
 ```
 
-Async generators follow the same pattern:
+**After:**
 
 ```js
-// v2 async generator
-async function* processQueue(mctx, { queueUrl }, ask) {
-  const step = createProgress();
-  while (true) {
-    const msg = await poll(queueUrl);
-    if (!msg) break;
-    yield step();
-    mctx.emit(`Processed: ${msg.id}`);
+async function migrate(mctx, req, res) {
+  for (let i = 0; i < req.tables.length; i++) {
+    res.progress(i + 1, req.tables.length);
+    await copyTable(req.tables[i]);
   }
-  return "Queue drained";
+  res.send("Migration complete");
 }
+migrate.input = { tables: T.array({ items: T.string(), required: true }) };
+app.tool("migrate", migrate);
 ```
 
 ---
 
-### Resource handlers (static)
+### Tool with sampling
 
-Static resources receive no URL parameters, so the practical change is that `mctx` moves to the front if you use it.
-
-**v1 — before:**
+**Before:**
 
 ```js
-const schema = (_params, _ask, ctx) => {
-  return JSON.stringify({ requestedBy: ctx.userId });
+const smart = async (mctx, { question }, ask) => {
+  if (!ask) return `Answer: ${question}`;
+  return ask(`Answer this question: ${question}`);
 };
-app.resource("db://schema", schema);
+smart.input = { question: T.string({ required: true }) };
+app.tool("smart", smart);
 ```
 
-**v2 — after:**
+**After:**
+
+```js
+const smart = async (mctx, req, res) => {
+  if (!res.ask) {
+    res.send(`Answer: ${req.question}`);
+    return;
+  }
+  const result = await res.ask(`Answer this question: ${req.question}`);
+  res.send(result);
+};
+smart.input = { question: T.string({ required: true }) };
+app.tool("smart", smart);
+```
+
+---
+
+### Resource handler
+
+**Before:**
 
 ```js
 const schema = (mctx) => {
@@ -152,40 +159,34 @@ const schema = (mctx) => {
 app.resource("db://schema", schema);
 ```
 
-If you do not use `mctx`, nothing changes in practice:
+**After:**
 
 ```js
-// Works identically in v1 and v2
-const readme = () => "# My API\n...";
-readme.mimeType = "text/plain";
-app.resource("docs://readme", readme);
-```
-
----
-
-### Resource template handlers (dynamic)
-
-Dynamic resources receive URI template parameters in the second position.
-
-**v1 — before:**
-
-```js
-const getCustomer = async ({ customerId }, ask, ctx) => {
-  const customer = await db.customers.find(customerId);
-  ctx.emit(`Fetched customer ${customerId}`, { meta: { user_id: ctx.userId } });
-  return JSON.stringify(customer);
+const schema = (mctx, req, res) => {
+  res.send(JSON.stringify({ requestedBy: mctx.userId }));
 };
-getCustomer.mimeType = "application/json";
-app.resource("db://customers/{customerId}", getCustomer);
+app.resource("db://schema", schema);
 ```
 
-**v2 — after:**
+For dynamic URI template resources:
+
+**Before:**
 
 ```js
 const getCustomer = async (mctx, { customerId }, ask) => {
   const customer = await db.customers.find(customerId);
-  mctx.emit(`Fetched customer ${customerId}`, { meta: { user_id: mctx.userId } });
   return JSON.stringify(customer);
+};
+getCustomer.mimeType = "application/json";
+app.resource("db://customers/{customerId}", getCustomer);
+```
+
+**After:**
+
+```js
+const getCustomer = async (mctx, req, res) => {
+  const customer = await db.customers.find(req.customerId);
+  res.send(JSON.stringify(customer));
 };
 getCustomer.mimeType = "application/json";
 app.resource("db://customers/{customerId}", getCustomer);
@@ -193,25 +194,9 @@ app.resource("db://customers/{customerId}", getCustomer);
 
 ---
 
-### Prompt handlers
+### Prompt handler
 
-**v1 — before:**
-
-```js
-const codeReview = ({ code, language }, ask, ctx) => {
-  return conversation(({ user }) => [
-    user.say(`Review this ${language} code for user ${ctx.userId}:`),
-    user.say(code),
-  ]);
-};
-codeReview.input = {
-  code: T.string({ required: true }),
-  language: T.string({ default: "javascript" }),
-};
-app.prompt("code-review", codeReview);
-```
-
-**v2 — after:**
+**Before:**
 
 ```js
 const codeReview = (mctx, { code, language }, ask) => {
@@ -227,57 +212,43 @@ codeReview.input = {
 app.prompt("code-review", codeReview);
 ```
 
----
-
-### Using `ask` with the new signature
-
-`ask` is now the third parameter in every handler type. Update any handlers that call into LLM sampling:
-
-**v1 — before:**
+**After:**
 
 ```js
-const smart = async ({ question }, ask) => {
-  if (!ask) return `Answer: ${question}`;
-  return ask(`Answer: ${question}`);
+const codeReview = (mctx, req, res) => {
+  res.send(
+    conversation(({ user }) => [
+      user.say(`Review this ${req.language} code for user ${mctx.userId}:`),
+      user.say(req.code),
+    ])
+  );
 };
-```
-
-**v2 — after:**
-
-```js
-const smart = async (mctx, { question }, ask) => {
-  if (!ask) return `Answer: ${question}`;
-  return ask(`Answer: ${question}`);
+codeReview.input = {
+  code: T.string({ required: true }),
+  language: T.string({ default: "javascript" }),
 };
+app.prompt("code-review", codeReview);
 ```
-
-The `ask` function itself is unchanged — only its position moved.
 
 ---
 
 ## What's new in v2
 
-These improvements ship alongside the breaking change. No code changes needed unless noted.
+These improvements ship alongside the breaking changes.
 
 ### `serverInfo.version` reads from package.json
 
-The server now reports your `package.json` version dynamically during the MCP `initialize` handshake, rather than a hardcoded `0.3.0`. No action required — the framework reads your version automatically at startup.
+The server reports your `package.json` version dynamically during the MCP `initialize` handshake. No action required.
 
 ### Tools with no arguments no longer throw
 
-Calling a tool that has no `.input` defined now gracefully defaults to an empty args object `{}` instead of throwing. If you had defensive guards around empty args, you can remove them.
+Calling a tool with no `.input` defined now defaults to an empty args object `{}` instead of throwing.
 
 ### Method-not-found errors include the method name
 
-Error responses for unknown JSON-RPC methods now include the method name that was not found, making debugging easier.
-
-### `createEmit` and `createCancel` marked `@internal`
-
-These two exports are framework internals. Use `mctx.emit` and `mctx.cancel` in your handler code. If you imported `createEmit` or `createCancel` directly in application code, switch to the `mctx` equivalents.
+Error responses for unknown JSON-RPC methods now include the method name, making debugging easier.
 
 ### Dev server: `startDevServer` is now importable
-
-You can now use the dev server programmatically in addition to the CLI:
 
 ```js
 import { startDevServer } from "@mctx-ai/dev";
@@ -287,20 +258,9 @@ await startDevServer(entryUrl, port);
 
 The CLI (`npx mctx-dev index.js`) continues to work unchanged.
 
-### Dev server: ESLint configured, watcher improved, error hints scoped
-
-`@mctx-ai/dev` now has ESLint configured on its own source. The file watcher had reliability improvements. Error hint output is scoped to reduce noise — these are internal changes with no API impact.
-
 ### Scaffolded projects: exact version pins and `.npmrc`
 
-`create-mctx-app` now generates projects with:
-
-- Exact dependency version pins (no `^` or `~` ranges)
-- `.npmrc` with `save-exact=true`
-- `engines` field in `package.json` enforcing Node >=22
-- `mctx` documented in the generated scaffold
-
-If you created a project with v1 of the scaffolding, you may want to add these manually. None are required for a working server.
+`create-mctx-app` generates projects with exact dependency version pins, `.npmrc` with `save-exact=true`, and `engines` enforcing Node >=22.
 
 ---
 

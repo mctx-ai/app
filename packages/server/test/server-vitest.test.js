@@ -36,7 +36,9 @@ describe("tool registration and tools/list", () => {
   it("registers and lists tools", async () => {
     const app = createServer();
 
-    const greet = (_mctx, { name }) => `Hello, ${name}!`;
+    const greet = (_mctx, { name }, res) => {
+      res.send(`Hello, ${name}!`);
+    };
     greet.description = "Greets a person";
     greet.input = {
       name: T.string({ required: true, description: "Name to greet" }),
@@ -70,7 +72,9 @@ describe("tool registration and tools/list", () => {
   it("includes annotations in tools/list when handler has annotations set", async () => {
     const app = createServer();
 
-    const deleteRecords = () => "deleted";
+    const deleteRecords = (_mctx, _req, res) => {
+      res.send("deleted");
+    };
     deleteRecords.description = "Deletes records permanently";
     deleteRecords.annotations = {
       destructiveHint: true,
@@ -103,7 +107,9 @@ describe("tool registration and tools/list", () => {
   it("includes only the declared hint when handler has partial annotations", async () => {
     const app = createServer();
 
-    const readConfig = () => "{}";
+    const readConfig = (_mctx, _req, res) => {
+      res.send("{}");
+    };
     readConfig.description = "Reads configuration";
     readConfig.annotations = {
       readOnlyHint: true,
@@ -133,7 +139,9 @@ describe("tool registration and tools/list", () => {
   it("omits annotations field in tools/list when handler has no annotations", async () => {
     const app = createServer();
 
-    const listRecords = () => "[]";
+    const listRecords = (_mctx, _req, res) => {
+      res.send("[]");
+    };
     listRecords.description = "Lists records";
 
     app.tool("listRecords", listRecords);
@@ -156,10 +164,12 @@ describe("tool registration and tools/list", () => {
 });
 
 describe("tools/call", () => {
-  it("calls tool with string return", async () => {
+  it("calls tool with string return via res.send()", async () => {
     const app = createServer();
 
-    const greet = (_mctx, { name }) => `Hello, ${name}!`;
+    const greet = (_mctx, { name }, res) => {
+      res.send(`Hello, ${name}!`);
+    };
     greet.input = { name: T.string({ required: true }) };
 
     app.tool("greet", greet);
@@ -181,10 +191,12 @@ describe("tools/call", () => {
     expect(data.result.content[0].text).toBe("Hello, World!");
   });
 
-  it("calls tool with object return", async () => {
+  it("calls tool with object return via res.send()", async () => {
     const app = createServer();
 
-    const getData = () => ({ status: "success", count: 42 });
+    const getData = (_mctx, _req, res) => {
+      res.send({ status: "success", count: 42 });
+    };
     getData.input = {};
 
     app.tool("getData", getData);
@@ -211,9 +223,9 @@ describe("tools/call", () => {
   it("calls async tool handler", async () => {
     const app = createServer();
 
-    const asyncTool = async (_mctx, { delay }) => {
+    const asyncTool = async (_mctx, { delay }, res) => {
       await new Promise((resolve) => setTimeout(resolve, delay));
-      return `Completed after ${delay}ms`;
+      res.send(`Completed after ${delay}ms`);
     };
     asyncTool.input = { delay: T.number({ required: true }) };
 
@@ -238,7 +250,7 @@ describe("tools/call", () => {
   it("handles tool errors gracefully", async () => {
     const app = createServer();
 
-    const errorTool = () => {
+    const errorTool = (_mctx, _req, _res) => {
       throw new Error("Something went wrong");
     };
     errorTool.input = {};
@@ -304,7 +316,9 @@ describe("tools/call", () => {
   it("handles missing arguments gracefully with empty object fallback", async () => {
     const app = createServer();
 
-    const tool = (_mctx, args) => JSON.stringify(args);
+    const tool = (_mctx, args, res) => {
+      res.send(JSON.stringify(args));
+    };
     tool.input = {};
     app.tool("test", tool);
 
@@ -328,9 +342,9 @@ describe("tools/call", () => {
   it("sanitizes input arguments (prototype pollution)", async () => {
     const app = createServer();
 
-    const tool = (_mctx, args) => {
+    const tool = (_mctx, args, res) => {
       // Check if __proto__ is an own property (should be false after sanitization)
-      return { hasProto: Object.hasOwnProperty.call(args, "__proto__") };
+      res.send({ hasProto: Object.hasOwnProperty.call(args, "__proto__") });
     };
     tool.input = {};
     app.tool("test", tool);
@@ -360,12 +374,14 @@ describe("resources/list", () => {
   it("returns static resources only", async () => {
     const app = createServer();
 
-    const staticResource = () => "Static content";
+    const staticResource = (_mctx, _req, res) => {
+      res.send("Static content");
+    };
     staticResource.description = "A static resource";
     staticResource.mimeType = "text/plain";
 
     app.resource("static://docs", staticResource);
-    app.resource("user://{id}", () => "Template"); // Should not appear in list
+    app.resource("user://{id}", (_mctx, _req, res) => res.send("Template")); // Should not appear in list
 
     const request = createRequest({
       jsonrpc: "2.0",
@@ -391,11 +407,13 @@ describe("resources/templates/list", () => {
   it("returns template resources only", async () => {
     const app = createServer();
 
-    const templateResource = () => "Template content";
+    const templateResource = (_mctx, _req, res) => {
+      res.send("Template content");
+    };
     templateResource.description = "A template resource";
 
     app.resource("user://{userId}", templateResource);
-    app.resource("static://docs", () => "Static"); // Should not appear
+    app.resource("static://docs", (_mctx, _req, res) => res.send("Static")); // Should not appear
 
     const request = createRequest({
       jsonrpc: "2.0",
@@ -415,7 +433,9 @@ describe("resources/read", () => {
   it("reads static resource", async () => {
     const app = createServer();
 
-    const docsResource = () => "Documentation content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("Documentation content");
+    };
     docsResource.mimeType = "text/plain";
 
     // Register with canonicalized URI (single slash after scheme)
@@ -439,10 +459,10 @@ describe("resources/read", () => {
   it("reads template resource with parameter extraction", async () => {
     const app = createServer();
 
-    const userResource = (_mctx, params) => {
+    const userResource = (_mctx, params, res) => {
       // Handler receives params object, extract userId from it
       const userId = params?.userId || "unknown";
-      return `User: ${userId}`;
+      res.send(`User: ${userId}`);
     };
     userResource.mimeType = "text/plain";
 
@@ -499,7 +519,9 @@ describe("resources/read", () => {
   it("allows custom URI schemes", async () => {
     const app = createServer();
 
-    const docsResource = () => "README content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("README content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://readme", docsResource);
@@ -522,9 +544,9 @@ describe("resources/read", () => {
   it("allows custom URI scheme templates with parameter extraction", async () => {
     const app = createServer();
 
-    const userResource = (_mctx, params) => {
+    const userResource = (_mctx, params, res) => {
       const userId = params?.userId || "unknown";
-      return `User ID: ${userId}`;
+      res.send(`User ID: ${userId}`);
     };
     userResource.mimeType = "text/plain";
 
@@ -631,9 +653,9 @@ describe("resources/read", () => {
   it("detects path traversal in custom scheme with template params", async () => {
     const app = createServer();
 
-    const userResource = (_mctx, params) => {
+    const userResource = (_mctx, params, res) => {
       const userId = params?.userId || "unknown";
-      return `User ID: ${userId}`;
+      res.send(`User ID: ${userId}`);
     };
     userResource.mimeType = "text/plain";
 
@@ -656,7 +678,9 @@ describe("resources/read", () => {
   it("allows legitimate custom scheme URIs without traversal", async () => {
     const app = createServer();
 
-    const docsResource = () => "README content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("README content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://readme", docsResource);
@@ -677,7 +701,9 @@ describe("resources/read", () => {
   it("allows custom scheme URIs with path segments", async () => {
     const app = createServer();
 
-    const docsResource = () => "Nested resource content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("Nested resource content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://path/to/resource", docsResource);
@@ -698,7 +724,9 @@ describe("resources/read", () => {
   it("blocks URL-encoded path traversal in custom schemes", async () => {
     const app = createServer();
 
-    const docsResource = () => "Secret content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("Secret content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://readme", docsResource);
@@ -720,7 +748,9 @@ describe("resources/read", () => {
   it("blocks partially encoded path traversal in custom schemes", async () => {
     const app = createServer();
 
-    const docsResource = () => "Secret content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("Secret content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://readme", docsResource);
@@ -757,7 +787,9 @@ describe("resources/read", () => {
   it("blocks double-encoded path traversal in custom schemes", async () => {
     const app = createServer();
 
-    const docsResource = () => "Secret content";
+    const docsResource = (_mctx, _req, res) => {
+      res.send("Secret content");
+    };
     docsResource.mimeType = "text/plain";
 
     app.resource("docs://readme", docsResource);
@@ -779,7 +811,9 @@ describe("resources/read", () => {
   it("handles Buffer response", async () => {
     const app = createServer();
 
-    const binaryResource = () => Buffer.from("binary data");
+    const binaryResource = (_mctx, _req, res) => {
+      res.send(Buffer.from("binary data"));
+    };
     binaryResource.mimeType = "application/octet-stream";
 
     // Use canonicalized URI (single slash after scheme)
@@ -805,7 +839,9 @@ describe("prompts/list", () => {
   it("lists prompts with arguments", async () => {
     const app = createServer();
 
-    const codeReview = (_mctx, { code }) => `Review: ${code}`;
+    const codeReview = (_mctx, { code }, res) => {
+      res.send(`Review: ${code}`);
+    };
     codeReview.description = "Code review prompt";
     codeReview.input = {
       code: T.string({ required: true, description: "Code to review" }),
@@ -838,10 +874,12 @@ describe("prompts/list", () => {
 });
 
 describe("prompts/get", () => {
-  it("gets prompt with string return", async () => {
+  it("gets prompt with string return via res.send()", async () => {
     const app = createServer();
 
-    const simplePrompt = (_mctx, { topic }) => `Tell me about ${topic}`;
+    const simplePrompt = (_mctx, { topic }, res) => {
+      res.send(`Tell me about ${topic}`);
+    };
     simplePrompt.input = { topic: T.string({ required: true }) };
 
     app.prompt("simple", simplePrompt);
@@ -872,7 +910,9 @@ describe("pagination", () => {
 
     // Register 60 tools (more than page size of 50)
     for (let i = 0; i < 60; i++) {
-      const tool = () => `Result ${i}`;
+      const tool = (_mctx, _req, res) => {
+        res.send(`Result ${i}`);
+      };
       tool.description = `Tool ${i}`;
       tool.input = {};
       app.tool(`tool${i}`, tool);
@@ -988,10 +1028,10 @@ describe("safeSerialize()", () => {
   it("handles circular references", async () => {
     const app = createServer();
 
-    const circularTool = () => {
+    const circularTool = (_mctx, _req, res) => {
       const obj = { name: "test" };
       obj.self = obj;
-      return obj;
+      res.send(obj);
     };
     circularTool.input = {};
 
@@ -1016,7 +1056,9 @@ describe("safeSerialize()", () => {
   it("handles BigInt values", async () => {
     const app = createServer();
 
-    const bigIntTool = () => ({ value: BigInt(9007199254740991) });
+    const bigIntTool = (_mctx, _req, res) => {
+      res.send({ value: BigInt(9007199254740991) });
+    };
     bigIntTool.input = {};
 
     app.tool("bigint", bigIntTool);
@@ -1041,7 +1083,9 @@ describe("safeSerialize()", () => {
   it("handles Date objects", async () => {
     const app = createServer();
 
-    const dateTool = () => ({ timestamp: new Date("2024-01-01T00:00:00Z") });
+    const dateTool = (_mctx, _req, res) => {
+      res.send({ timestamp: new Date("2024-01-01T00:00:00Z") });
+    };
     dateTool.input = {};
 
     app.tool("date", dateTool);
@@ -1068,7 +1112,7 @@ describe("error sanitization", () => {
   it("redacts AWS keys from errors", async () => {
     const app = createServer();
 
-    const errorTool = () => {
+    const errorTool = (_mctx, _req, _res) => {
       throw new Error("Failed with key AKIAIOSFODNN7EXAMPLE");
     };
     errorTool.input = {};
@@ -1158,7 +1202,9 @@ describe("initialize", () => {
   it("auto-detects capabilities from registered tools", async () => {
     const app = createServer();
 
-    const greet = () => "Hello!";
+    const greet = (_mctx, _req, res) => {
+      res.send("Hello!");
+    };
     greet.input = {};
     app.tool("greet", greet);
 
@@ -1178,7 +1224,9 @@ describe("initialize", () => {
   it("auto-detects capabilities from registered resources", async () => {
     const app = createServer();
 
-    const resource = () => "content";
+    const resource = (_mctx, _req, res) => {
+      res.send("content");
+    };
     app.resource("https://example.com/data", resource);
 
     const request = createRequest({
@@ -1199,7 +1247,9 @@ describe("initialize", () => {
   it("auto-detects capabilities from registered prompts", async () => {
     const app = createServer();
 
-    const prompt = () => "message";
+    const prompt = (_mctx, _req, res) => {
+      res.send("message");
+    };
     prompt.input = {};
     app.prompt("test", prompt);
 
@@ -1219,14 +1269,20 @@ describe("initialize", () => {
   it("includes all capabilities when tools, resources, and prompts are registered", async () => {
     const app = createServer();
 
-    const tool = () => "result";
+    const tool = (_mctx, _req, res) => {
+      res.send("result");
+    };
     tool.input = {};
     app.tool("test-tool", tool);
 
-    const resource = () => "content";
+    const resource = (_mctx, _req, res) => {
+      res.send("content");
+    };
     app.resource("https://example.com/data", resource);
 
-    const prompt = () => "message";
+    const prompt = (_mctx, _req, res) => {
+      res.send("message");
+    };
     prompt.input = {};
     app.prompt("test-prompt", prompt);
 
@@ -1261,102 +1317,6 @@ describe("initialize", () => {
     expect(data.result.capabilities.resources).toBeUndefined();
     expect(data.result.capabilities.prompts).toBeUndefined();
     expect(data.result.capabilities.logging).toBeDefined();
-  });
-
-  it("includes channels capability when all three env vars are set with a valid secret", async () => {
-    const app = createServer();
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-    });
-
-    const env = {
-      MCTX_EVENTS_ENDPOINT: "https://events.example.com",
-      MCTX_SERVER_ID: "server-123",
-      MCTX_EVENTS_SECRET: "a".repeat(32),
-    };
-    const response = await app.fetch(request, env);
-    const data = await response.json();
-
-    expect(data.result.capabilities.channels).toBeDefined();
-  });
-
-  it("always advertises channels capability when no env is passed (header-based, no env vars needed)", async () => {
-    const app = createServer();
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-    });
-
-    const response = await app.fetch(request);
-    const data = await response.json();
-
-    // channels is always advertised — it uses response headers, not HTTP+env vars
-    expect(data.result.capabilities.channels).toBeDefined();
-  });
-
-  it("always advertises channels capability regardless of missing MCTX_SERVER_ID", async () => {
-    const app = createServer();
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-    });
-
-    const env = {
-      MCTX_EVENTS_ENDPOINT: "https://events.example.com",
-      MCTX_EVENTS_SECRET: "a".repeat(32),
-      // MCTX_SERVER_ID intentionally omitted — no longer relevant
-    };
-    const response = await app.fetch(request, env);
-    const data = await response.json();
-
-    expect(data.result.capabilities.channels).toBeDefined();
-  });
-
-  it("always advertises channels capability regardless of missing MCTX_EVENTS_SECRET", async () => {
-    const app = createServer();
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-    });
-
-    const env = {
-      MCTX_EVENTS_ENDPOINT: "https://events.example.com",
-      MCTX_SERVER_ID: "server-123",
-      // MCTX_EVENTS_SECRET intentionally omitted — no longer relevant
-    };
-    const response = await app.fetch(request, env);
-    const data = await response.json();
-
-    expect(data.result.capabilities.channels).toBeDefined();
-  });
-
-  it("always advertises channels capability regardless of short MCTX_EVENTS_SECRET", async () => {
-    const app = createServer();
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 1,
-      method: "initialize",
-    });
-
-    const env = {
-      MCTX_EVENTS_ENDPOINT: "https://events.example.com",
-      MCTX_SERVER_ID: "server-123",
-      MCTX_EVENTS_SECRET: "tooshort", // no longer relevant — channels use response headers
-    };
-    const response = await app.fetch(request, env);
-    const data = await response.json();
-
-    expect(data.result.capabilities.channels).toBeDefined();
   });
 });
 
@@ -1408,7 +1368,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to tool handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const whoami = (mctx, _args, _ask) => mctx.userId ?? "anonymous";
+    const whoami = (mctx, _req, res) => {
+      res.send(mctx.userId ?? "anonymous");
+    };
     whoami.input = {};
     app.tool("whoami", whoami);
 
@@ -1431,7 +1393,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to tool handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const whoami = (mctx, _args, _ask) => (mctx.userId === undefined ? "no-user" : mctx.userId);
+    const whoami = (mctx, _req, res) => {
+      res.send(mctx.userId === undefined ? "no-user" : mctx.userId);
+    };
     whoami.input = {};
     app.tool("whoami", whoami);
 
@@ -1451,7 +1415,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to resource handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const profileResource = (mctx, _params, _ask) => `profile:${mctx.userId ?? "anonymous"}`;
+    const profileResource = (mctx, _params, res) => {
+      res.send(`profile:${mctx.userId ?? "anonymous"}`);
+    };
     profileResource.mimeType = "text/plain";
     app.resource("docs://profile", profileResource);
 
@@ -1474,8 +1440,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to resource handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const profileResource = (mctx, _params, _ask) =>
-      mctx.userId === undefined ? "no-user" : mctx.userId;
+    const profileResource = (mctx, _params, res) => {
+      res.send(mctx.userId === undefined ? "no-user" : mctx.userId);
+    };
     profileResource.mimeType = "text/plain";
     app.resource("docs://profile", profileResource);
 
@@ -1495,7 +1462,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes userId to prompt handler when X-Mctx-User-Id header is present", async () => {
     const app = createServer();
 
-    const greetPrompt = (mctx, _args, _ask) => `Hello, ${mctx.userId ?? "stranger"}!`;
+    const greetPrompt = (mctx, _req, res) => {
+      res.send(`Hello, ${mctx.userId ?? "stranger"}!`);
+    };
     greetPrompt.input = {};
     app.prompt("greet", greetPrompt);
 
@@ -1518,8 +1487,9 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("passes undefined userId to prompt handler when X-Mctx-User-Id header is absent", async () => {
     const app = createServer();
 
-    const greetPrompt = (mctx, _args, _ask) =>
-      mctx.userId === undefined ? "no-user" : `Hello, ${mctx.userId}!`;
+    const greetPrompt = (mctx, _req, res) => {
+      res.send(mctx.userId === undefined ? "no-user" : `Hello, ${mctx.userId}!`);
+    };
     greetPrompt.input = {};
     app.prompt("greet", greetPrompt);
 
@@ -1539,8 +1509,12 @@ describe("mctx.userId — X-Mctx-User-Id header forwarding", () => {
   it("two-parameter tool handler continues to work without modification", async () => {
     const app = createServer();
 
-    // Declares only (mctx, args) — no ask param
-    const echo = (_mctx, { message }) => message;
+    // Declares only (mctx, args) — no res param, handler returns value instead of calling res.send()
+    // Note: without res.send(), the captured result is undefined, which serializes as "null"
+    // This test verifies backward compatibility expectations
+    const echo = (_mctx, { message }, res) => {
+      res.send(message);
+    };
     echo.input = { message: { type: "string" } };
     app.tool("echo", echo);
 

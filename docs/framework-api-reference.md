@@ -23,7 +23,9 @@ Returns an object with `.tool()`, `.resource()`, `.prompt()`, and `.fetch()` met
 Register a tool that AI clients can call.
 
 ```js
-const greet = (mctx, { name, greeting }) => `${greeting}, ${name}!`;
+const greet = (mctx, req, res) => {
+  res.send(`${req.greeting}, ${req.name}!`);
+};
 greet.description = "Greets a person";
 greet.input = {
   name: T.string({ required: true }),
@@ -34,10 +36,10 @@ app.tool("greet", greet);
 
 **Handler contract:**
 
-- Receives `mctx` (ModelContext) as first parameter — provides `mctx.userId`, `mctx.emit`, and `mctx.cancel`
-- Receives parsed arguments as second parameter
-- Third parameter `ask` is a function when the client advertises sampling capability, or `null` if the client does not support sampling — always check before calling
-- Returns `string`, `object` (auto-serialized), or MCP content array
+- Receives `mctx` (ModelContext) as the first parameter — provides `mctx.userId`
+- Receives validated input as `req` (second parameter) — access fields directly: `req.name`, `req.query`, etc.
+- Receives `res` (third parameter) — the output port with `res.send()`, `res.progress()`, and `res.ask()`
+- Call `res.send(result)` to return the result — do not use `return`
 - Attach `.description` and `.input` as properties on the function
 - Errors are caught and returned as tool error responses with secrets redacted
 
@@ -49,44 +51,152 @@ Register a resource. Use exact URIs for static resources, URI templates for dyna
 
 ```js
 // Static
-const readme = (mctx) => "Content here";
+const readme = (mctx, req, res) => {
+  res.send("Content here");
+};
 readme.mimeType = "text/plain";
 app.resource("docs://readme", readme);
 
 // Dynamic (RFC 6570 Level 1 template)
-const user = (mctx, { userId }) => JSON.stringify({ id: userId });
+const user = (mctx, req, res) => {
+  res.send(JSON.stringify({ id: req.userId }));
+};
 user.mimeType = "application/json";
 app.resource("user://{userId}", user);
 ```
 
-Resource handlers receive `(mctx, params, ask)`. `mctx` is the ModelContext. For static resources `params` is `{}`.
+Resource handlers receive `(mctx, req, res)`. `mctx` is the ModelContext. For static resources `req` is `{}`. URI template parameters are available on `req` by name.
 
 ### app.prompt(name, handler)
 
-Register a prompt template. Return a string for single-message prompts, or use `conversation()` for multi-message.
+Register a prompt template. Call `res.send()` with a string for single-message prompts, or pass a `conversation()` result for multi-message.
 
 ```js
 // Single message
-const review = (mctx, { code }) => `Review: ${code}`;
+const review = (mctx, req, res) => {
+  res.send(`Review: ${req.code}`);
+};
 review.input = { code: T.string({ required: true }) };
 app.prompt("code-review", review);
 
 // Multi-message
-const debug = (mctx, { error }) =>
-  conversation(({ user, ai }) => [user.say(`Debug: ${error}`), ai.say("Analyzing...")]);
+const debug = (mctx, req, res) => {
+  res.send(
+    conversation(({ user, ai }) => [
+      user.say(`Debug: ${req.error}`),
+      ai.say("Analyzing..."),
+    ])
+  );
+};
 debug.input = { error: T.string({ required: true }) };
 app.prompt("debug", debug);
 ```
 
-Prompt handlers receive `(mctx, args, ask)`. `mctx` is the ModelContext.
+Prompt handlers receive `(mctx, req, res)`. `mctx` is the ModelContext.
 
 ### app.fetch(request, env, ctx)
 
-The fetch handler. Compatible with Cloudflare Workers and mctx platform.
+The fetch handler. Compatible with Cloudflare Workers and the mctx platform.
 
 ```js
 export default { fetch: app.fetch };
 ```
+
+---
+
+## Handler Parameters
+
+### mctx (ModelContext)
+
+The first parameter of every handler. Provides per-request context.
+
+| Property   | Type     | Description                                                          |
+| ---------- | -------- | -------------------------------------------------------------------- |
+| `userId`   | `string \| undefined` | Stable, opaque identifier for the authenticated user. Extracted from the `X-Mctx-User-Id` header. `undefined` for unauthenticated requests. |
+
+### req (Input)
+
+The second parameter of every handler. Contains the validated input fields as direct properties.
+
+```js
+// Given input: { name: T.string({ required: true }), age: T.number() }
+// Access as:
+req.name  // string
+req.age   // number | undefined
+```
+
+For static resources, `req` is `{}`. For URI template resources, `req` contains the extracted template parameters.
+
+### res (Output Port)
+
+The third parameter of every handler. Use `res` to send results, report progress, or perform LLM sampling.
+
+#### res.send(result)
+
+Sends the final result. Call once per handler invocation.
+
+```js
+res.send("Hello, world!");
+res.send({ status: "ok", count: 42 });
+```
+
+**Parameters:**
+
+- `result` — A string, object (auto-serialized), or MCP content array.
+
+#### res.progress(current, total?)
+
+Reports progress to the client during long-running operations.
+
+```js
+async function processItems(mctx, req, res) {
+  for (let i = 0; i < req.items.length; i++) {
+    res.progress(i + 1, req.items.length);
+    await processItem(req.items[i]);
+  }
+  res.send("Done");
+}
+```
+
+**Parameters:**
+
+- `current` — Current step number (integer).
+- `total` — Total number of steps (integer, optional). Omit for indeterminate progress.
+
+#### res.ask(promptOrOptions, timeout?)
+
+Performs LLM sampling via the connected client. Returns `null` if the client does not support sampling — always check before using the result.
+
+```js
+const smart = async (mctx, req, res) => {
+  const result = await res.ask(`Answer this question: ${req.question}`);
+  if (!result) {
+    res.send(`Answer: ${req.question}`);
+    return;
+  }
+  res.send(result);
+};
+```
+
+**Advanced usage** — pass an options object for full control:
+
+```js
+const result = await res.ask({
+  messages: [{ role: "user", content: { type: "text", text: req.question } }],
+  modelPreferences: { hints: [{ name: "claude-3-5-sonnet" }] },
+  systemPrompt: "You are a helpful assistant.",
+  maxTokens: 1000,
+});
+```
+
+**Parameters:**
+
+| Parameter         | Type             | Description                                                       |
+| ----------------- | ---------------- | ----------------------------------------------------------------- |
+| `promptOrOptions` | `string\|Object` | A plain string prompt, or an options object with `messages` array |
+| `timeout`         | `number`         | Request timeout in milliseconds. Default: `30000` (30s)           |
+
+Returns `Promise<string | null>` — the text content from the LLM response, or `null` if the client does not support sampling.
 
 ---
 
@@ -180,26 +290,6 @@ conversation(({ user, ai }) => [
 
 ---
 
-## createProgress(total?)
-
-Creates a step function for generator-based tools.
-
-```js
-import { createProgress } from "@mctx-ai/app";
-
-const task = function* (mctx, { data }) {
-  const step = createProgress(3);
-  yield step();
-  yield step();
-  yield step();
-  return "Done";
-};
-```
-
-Call `createProgress()` without arguments for indeterminate progress. Progress steps are tracked internally. In the current HTTP transport, progress is tracked but not streamed -- the final result is returned when the generator completes.
-
----
-
 ## log
 
 Structured logging with RFC 5424 severity levels.
@@ -256,59 +346,6 @@ const logs = getLogBuffer();
 clearLogBuffer();
 // Forward `logs` to your log sink
 ```
-
----
-
-## Sampling (ask)
-
-All handlers receive a third parameter `ask` that enables LLM-in-the-loop sampling. The framework creates `ask` via `createAsk()`, which checks client capabilities during the MCP `initialize` handshake.
-
-- **`ask` is a function** when the client advertises `sampling` capability.
-- **`ask` is `null`** when the client does not support sampling.
-
-Always guard before calling `ask`:
-
-```js
-const smart = async (mctx, { question }, ask) => {
-  if (!ask) {
-    return `Answer: ${question}`;
-  }
-
-  // Simple string prompt
-  const result = await ask(`Answer this question: ${question}`);
-  return result;
-};
-```
-
-### Advanced usage
-
-Pass an options object for full control over the `sampling/createMessage` request:
-
-```js
-const smart = async (mctx, { question }, ask) => {
-  if (!ask) return `Answer: ${question}`;
-
-  const result = await ask({
-    messages: [{ role: "user", content: { type: "text", text: question } }],
-    modelPreferences: { hints: [{ name: "claude-3-5-sonnet" }] },
-    systemPrompt: "You are a helpful assistant.",
-    maxTokens: 1000,
-  });
-
-  return result;
-};
-```
-
-### ask(promptOrOptions, timeout?)
-
-| Parameter         | Type             | Description                                                       |
-| ----------------- | ---------------- | ----------------------------------------------------------------- |
-| `promptOrOptions` | `string\|Object` | A plain string prompt, or an options object with `messages` array |
-| `timeout`         | `number`         | Request timeout in milliseconds. Default: `30000` (30s)           |
-
-Returns `Promise<string>` — the text content from the client's LLM response.
-
-Throws if the request fails or times out. Sampling is invoked via the MCP `sampling/createMessage` method sent through the active transport's `sendRequest` callback.
 
 ---
 

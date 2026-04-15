@@ -36,7 +36,7 @@ Note: npm is included with Node.js, so no additional setup action is required.
 
 Three npm workspaces in `packages/` (defined via `"workspaces": ["packages/*"]` in root `package.json`):
 
-- **`@mctx-ai/app`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `createProgress`, `PROGRESS_DEFAULTS`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`, `createEmit`, `META_KEY_PATTERN`. Type exports include `ModelContext` (`{ userId?: string, emit: EmitFunction }`). Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
+- **`@mctx-ai/app`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`. Type exports include `ModelContext` (`{ userId?: string }`). Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
 - **`@mctx-ai/dev`** (`packages/dev/`) — Dev server with hot reload, request logging, log surfacing (handler log entries printed to dev console), and sampling stub (`/_mctx/sampling` endpoint returns error in dev mode). Peer-depends on `@mctx-ai/app`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
 - **`create-mctx-app`** (`packages/create-mctx-app/`) — CLI scaffolding tool (`npm create mctx-app <name>`). Generates a new project with `@mctx-ai/app` + `@mctx-ai/dev` + `esbuild` configured.
 
@@ -111,8 +111,8 @@ npm run typecheck --workspace=@mctx-ai/app  # tsc --noEmit
 Functions carry metadata as properties:
 
 ```javascript
-function greet({ name }) {
-  return `Hello, ${name}!`;
+function greet(mctx, req, res) {
+  res.send(`Hello, ${req.name}!`);
 }
 greet.description = "Greet someone by name";
 greet.input = { name: T.string({ required: true }) };
@@ -120,87 +120,19 @@ greet.input = { name: T.string({ required: true }) };
 app.tool("greet", greet);
 ```
 
-Handler functions receive up to three parameters: `(mctx, args, ask)` for tools and prompts, `(mctx, params, ask)` for resource templates. All parameters are optional. `mctx` is an `ModelContext` object `{ userId?: string }` populated automatically by the platform.
+Handler functions receive three parameters: `(mctx, req, res)` for all handler types (tools, resources, and prompts).
+
+- `mctx` — model context: `{ userId?: string }`
+- `req` — validated input fields accessed directly (`req.name`, `req.query`, etc.). For static resources, `req` is `{}`. For URI template resources, `req` contains the extracted template parameters.
+- `res` — output port: `{ send(result), progress(current, total?), ask(prompt) }`
 
 ### Handler Types
 
-1. **Tools** — Sync, async, or generator functions. Generators yield progress notifications. `ask` (third param) enables LLM sampling. `mctx` (first param) carries per-request context including `mctx.userId`.
-2. **Resources** — Static URIs or URI templates with `{param}` placeholders. Params extracted via RFC 6570 Level 1. Template handlers receive `(mctx, params, ask)`.
-3. **Prompts** — Return string, `conversation()` result, or Message array. Receive `(mctx, args, ask)`.
+1. **Tools** — Sync or async functions. Receive `(mctx, req, res)`. Call `res.send(result)` to return the result. Call `res.progress(current, total?)` for progress reporting. Call `res.ask(prompt)` for LLM sampling (`null` if client does not support sampling).
+2. **Resources** — Static URIs or URI templates with `{param}` placeholders. Params extracted via RFC 6570 Level 1. All resource handlers receive `(mctx, req, res)`.
+3. **Prompts** — Call `res.send()` with a string, `conversation()` result, or Message array. Receive `(mctx, req, res)`.
 
-`ModelContext` shape: `{ userId?: string, emit: EmitFunction, cancel: CancelFunction }`. `mctx.userId` is a stable, opaque identifier for the authenticated user extracted from the `X-Mctx-User-Id` HTTP header injected by the mctx dispatch worker. It is `undefined` for unauthenticated requests.
-
-### Channel Events
-
-`mctx.emit(content, options?)` and `mctx.cancel(eventId)` are available in all handler types (tools, resources, prompts) via the `mctx` parameter. Events are written as `X-Mctx-Event` response headers; the dispatch worker reads these headers and writes events to D1. No HTTP calls, env vars, or async coordination required.
-
-**Emit signature:**
-
-```javascript
-mctx.emit(content, options?)
-```
-
-**Parameters:**
-
-- `content` (string) — Display text for the event, non-empty, truncated to 500 characters
-- `options` (object, optional) — Event configuration
-  - `options.eventType` (string) — Custom event type identifier (default: `"channel"`), must match `[a-zA-Z0-9_]+`
-  - `options.meta` (object) — Key-value metadata; both keys and values must be strings and keys must match `[a-zA-Z0-9_]+`
-  - `options.deliverAt` (string) — ISO 8601 timestamp for scheduled delivery; omit for immediate delivery
-  - `options.key` (string) — Idempotency/correlation key for deduplication and cancellation, must match `[a-zA-Z0-9_]+`
-
-**Returns:** `string` — the eventId (UUID) synchronously, or `""` on silent no-op
-
-**Cancel signature:**
-
-```javascript
-mctx.cancel(eventId);
-```
-
-- `eventId` (string) — the eventId returned by a previous `mctx.emit()` call
-- Appends an `X-Mctx-Cancel` response header; the dispatch worker cancels the matching pending event in D1
-- No-ops silently on invalid input
-
-**Behavior:**
-
-- No-ops silently on invalid input (wrong types, empty strings, invalid key/meta patterns)
-- Content automatically truncated to 500 characters
-- Any metadata key or value violation triggers a silent no-op (no event emitted)
-- `expiresAt` set automatically to 7 days from emit time; cannot be overridden
-- Synchronous and non-blocking — no async, no awaiting, no side effects on the tool response
-
-**Important:** Developers MUST sanitize user-generated content before passing to `mctx.emit()`. The emit function does not perform content sanitization beyond length truncation.
-
-**Example:**
-
-```javascript
-function myTool(mctx, { userId, scheduleFor }, _ask) {
-  // ... do work ...
-
-  // Sanitize user input before emitting
-  const sanitizedMessage = sanitize(userInput);
-
-  // Emit immediately and capture the eventId for possible cancellation
-  const eventId = mctx.emit(`User ${userId} completed task`, {
-    eventType: "task_complete",
-    meta: { user_id: userId, status: "success" },
-  });
-
-  // Emit a scheduled follow-up notification
-  const reminderEventId = mctx.emit("Reminder: review your results", {
-    eventType: "reminder",
-    deliverAt: scheduleFor,
-    key: `reminder_${userId}`,
-  });
-
-  // Cancel a previously scheduled event if needed
-  if (shouldCancel) {
-    mctx.cancel(reminderEventId);
-  }
-
-  return { success: true, eventId };
-}
-```
+`ModelContext` shape: `{ userId?: string }`. `mctx.userId` is a stable, opaque identifier for the authenticated user extracted from the `X-Mctx-User-Id` HTTP header injected by the mctx dispatch worker. It is `undefined` for unauthenticated requests.
 
 ### Core Modules
 
@@ -208,12 +140,11 @@ function myTool(mctx, { userId, scheduleFor }, _ask) {
 - **`types.js`** — `T` type system (T.string, T.number, T.boolean, T.array, T.object) compiles to JSON Schema
 - **`uri.js`** — RFC 6570 Level 1 URI template matching
 - **`conversation.js`** — Multi-message prompt builder (user.say, ai.say, attach, embed)
-- **`progress.js`** — Generator-based progress with 60s timeout, 10k yield limit
+- **`progress.js`** — Progress reporting via `res.progress(current, total?)`
 - **`log.js`** — RFC 5424 logging (8 severity levels, internal buffer with FIFO eviction)
-- **`sampling.js`** — LLM-in-the-loop via `ask` function (client sampling capability)
+- **`sampling.js`** — LLM-in-the-loop via `res.ask(prompt)` (client sampling capability)
 - **`completion.js`** — Auto-completion from handlers, T.enum, or URI templates
 - **`security.js`** — Error sanitization, secret redaction, size limits, URI scheme validation
-- **`channel.js`** — Channel event emission (createEmit, createCancel, response header event emission)
 
 ---
 

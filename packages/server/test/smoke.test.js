@@ -6,14 +6,7 @@
 
 import { describe, it, expect } from "vitest";
 import * as mcpServer from "../src/index.js";
-import {
-  createServer,
-  T,
-  conversation,
-  createProgress,
-  PROGRESS_DEFAULTS,
-  log,
-} from "../src/index.js";
+import { createServer, T, conversation, log } from "../src/index.js";
 
 describe("package exports", () => {
   it("exports createServer", () => {
@@ -41,17 +34,6 @@ describe("package exports", () => {
     expect(typeof mcpServer.conversation).toBe("function");
   });
 
-  it("exports createProgress", () => {
-    expect(mcpServer.createProgress).toBeDefined();
-    expect(typeof mcpServer.createProgress).toBe("function");
-  });
-
-  it("exports PROGRESS_DEFAULTS", () => {
-    expect(PROGRESS_DEFAULTS).toBeDefined();
-    expect(PROGRESS_DEFAULTS.maxExecutionTime).toBe(60000);
-    expect(PROGRESS_DEFAULTS.maxYields).toBe(10000);
-  });
-
   it("exports log", () => {
     expect(mcpServer.log).toBeDefined();
     expect(typeof mcpServer.log).toBe("object");
@@ -68,7 +50,9 @@ describe("basic functionality smoke test", () => {
   it("creates a server and responds to tools/list", async () => {
     const app = createServer();
 
-    const greet = (_mctx, { name }) => `Hello, ${name}!`;
+    const greet = (_mctx, { name }, res) => {
+      res.send(`Hello, ${name}!`);
+    };
     greet.description = "Greets a person";
     greet.input = {
       name: T.string({ required: true }),
@@ -122,18 +106,6 @@ describe("basic functionality smoke test", () => {
     expect(result.messages[1].role).toBe("assistant");
   });
 
-  it("createProgress produces notification objects", () => {
-    const step = createProgress(3);
-
-    const notification1 = step();
-    expect(notification1.type).toBe("progress");
-    expect(notification1.progress).toBe(1);
-    expect(notification1.total).toBe(3);
-
-    const notification2 = step();
-    expect(notification2.progress).toBe(2);
-  });
-
   it("log produces notification objects", () => {
     // log methods return notification objects
     const notification = log.info("Test message");
@@ -150,7 +122,6 @@ describe("import patterns", () => {
     expect(createServer).toBeDefined();
     expect(T).toBeDefined();
     expect(conversation).toBeDefined();
-    expect(createProgress).toBeDefined();
     expect(log).toBeDefined();
   });
 
@@ -158,7 +129,6 @@ describe("import patterns", () => {
     expect(mcpServer.createServer).toBeDefined();
     expect(mcpServer.T).toBeDefined();
     expect(mcpServer.conversation).toBeDefined();
-    expect(mcpServer.createProgress).toBeDefined();
     expect(mcpServer.log).toBeDefined();
   });
 });
@@ -188,13 +158,6 @@ describe("type safety", () => {
     expect(() => conversation("not a function")).toThrow();
     expect(() => conversation(() => "not an array")).toThrow();
   });
-
-  it("createProgress validates total parameter", () => {
-    expect(() => createProgress("not a number")).toThrow();
-    expect(() => createProgress(-1)).toThrow();
-    expect(() => createProgress(0)).toThrow();
-    expect(() => createProgress(10)).not.toThrow();
-  });
 });
 
 describe("minimal working example", () => {
@@ -203,7 +166,9 @@ describe("minimal working example", () => {
     const app = createServer();
 
     // Register a tool
-    const echo = (_mctx, { message }) => message;
+    const echo = (_mctx, { message }, res) => {
+      res.send(message);
+    };
     echo.input = {
       message: T.string({ required: true }),
     };
@@ -255,7 +220,9 @@ describe("version compatibility", () => {
     // Verify we can use the package without .d.ts files
     const app = createServer();
 
-    const tool = () => "result";
+    const tool = (_mctx, _req, res) => {
+      res.send("result");
+    };
     tool.input = {};
 
     expect(() => app.tool("test", tool)).not.toThrow();

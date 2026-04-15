@@ -1,239 +1,88 @@
 /**
- * Progress Module Tests
+ * Progress Tests
  *
- * Tests progress tracking for generator-based tool handlers.
+ * Tests progress reporting via res.progress() in tool handlers.
+ * The old generator-based createProgress module has been removed.
+ * Progress is now reported by calling res.progress(current, total?) from within a handler.
  */
 
-import { describe, it, expect } from "vitest";
-import { createProgress, PROGRESS_DEFAULTS } from "../src/progress.js";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { createServer } from "../src/index.js";
 
-describe("PROGRESS_DEFAULTS", () => {
-  it("exports default configuration", () => {
-    expect(PROGRESS_DEFAULTS).toBeDefined();
-    expect(PROGRESS_DEFAULTS.maxExecutionTime).toBe(60000);
-    expect(PROGRESS_DEFAULTS.maxYields).toBe(10000);
+// Helper to create mock Request
+function createRequest(body) {
+  return new Request("http://localhost", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
-});
+}
 
-describe("createProgress()", () => {
-  it("creates step function without total", () => {
-    const step = createProgress();
-    expect(typeof step).toBe("function");
-  });
+describe("res.progress() in tool handlers", () => {
+  let originalFetch;
 
-  it("creates step function with total", () => {
-    const step = createProgress(10);
-    expect(typeof step).toBe("function");
-  });
-
-  it("throws if total is not a number", () => {
-    expect(() => createProgress("10")).toThrow(/total must be a positive number/);
-    expect(() => createProgress({})).toThrow(/total must be a positive number/);
-  });
-
-  it("throws if total is zero", () => {
-    expect(() => createProgress(0)).toThrow(/total must be a positive number/);
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+    // Mock fetch for progress notifications (fire-and-forget)
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ jsonrpc: "2.0", id: 1, result: {} }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
   });
 
-  it("throws if total is negative", () => {
-    expect(() => createProgress(-5)).toThrow(/total must be a positive number/);
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
   });
-});
 
-describe("step() - indeterminate progress", () => {
-  it("returns progress notification with auto-incrementing counter", () => {
-    const step = createProgress();
+  it("tool handler can call res.progress() without error", async () => {
+    const app = createServer();
 
-    const notification1 = step();
-    expect(notification1).toEqual({
-      type: "progress",
-      progress: 1,
+    const progressTool = async (_mctx, _req, res) => {
+      res.progress(1, 3);
+      res.progress(2, 3);
+      res.progress(3, 3);
+      res.send("done");
+    };
+    progressTool.input = {};
+    app.tool("progress-tool", progressTool);
+
+    const request = createRequest({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "tools/call",
+      params: { name: "progress-tool", arguments: {} },
     });
 
-    const notification2 = step();
-    expect(notification2).toEqual({
-      type: "progress",
-      progress: 2,
+    const response = await app.fetch(request);
+    const data = await response.json();
+
+    expect(data.result.content[0].text).toBe("done");
+  });
+
+  it("res.progress() accepts current without total (indeterminate)", async () => {
+    const app = createServer();
+
+    const progressTool = async (_mctx, _req, res) => {
+      res.progress(1);
+      res.progress(2);
+      res.send("indeterminate done");
+    };
+    progressTool.input = {};
+    app.tool("indeterminate", progressTool);
+
+    const request = createRequest({
+      jsonrpc: "2.0",
+      id: 2,
+      method: "tools/call",
+      params: { name: "indeterminate", arguments: {} },
     });
 
-    const notification3 = step();
-    expect(notification3).toEqual({
-      type: "progress",
-      progress: 3,
-    });
-  });
+    const response = await app.fetch(request);
+    const data = await response.json();
 
-  it("does not include total field", () => {
-    const step = createProgress();
-    const notification = step();
-
-    expect(notification.total).toBeUndefined();
-  });
-
-  it("increments independently for each instance", () => {
-    const step1 = createProgress();
-    const step2 = createProgress();
-
-    step1();
-    step1();
-
-    expect(step1()).toEqual({ type: "progress", progress: 3 });
-    expect(step2()).toEqual({ type: "progress", progress: 1 });
-  });
-});
-
-describe("step() - determinate progress", () => {
-  it("includes total when provided", () => {
-    const step = createProgress(5);
-
-    const notification1 = step();
-    expect(notification1).toEqual({
-      type: "progress",
-      progress: 1,
-      total: 5,
-    });
-
-    const notification2 = step();
-    expect(notification2).toEqual({
-      type: "progress",
-      progress: 2,
-      total: 5,
-    });
-  });
-
-  it("can exceed total without error", () => {
-    const step = createProgress(2);
-
-    step(); // progress: 1/2
-    step(); // progress: 2/2
-    const notification = step(); // progress: 3/2
-
-    expect(notification).toEqual({
-      type: "progress",
-      progress: 3,
-      total: 2,
-    });
-  });
-
-  it("handles large totals", () => {
-    const step = createProgress(10000);
-    const notification = step();
-
-    expect(notification.total).toBe(10000);
-  });
-});
-
-describe("createProgress() - realistic usage", () => {
-  it("simulates determinate loop progress", () => {
-    const items = ["a", "b", "c", "d", "e"];
-    const step = createProgress(items.length);
-    const notifications = [];
-
-    for (let i = 0; i < items.length; i++) {
-      notifications.push(step());
-      // Process item...
-    }
-
-    expect(notifications).toEqual([
-      { type: "progress", progress: 1, total: 5 },
-      { type: "progress", progress: 2, total: 5 },
-      { type: "progress", progress: 3, total: 5 },
-      { type: "progress", progress: 4, total: 5 },
-      { type: "progress", progress: 5, total: 5 },
-    ]);
-  });
-
-  it("simulates indeterminate stream progress", () => {
-    const step = createProgress();
-    const notifications = [];
-
-    let count = 0;
-    while (count < 3) {
-      notifications.push(step());
-      count++;
-    }
-
-    expect(notifications).toEqual([
-      { type: "progress", progress: 1 },
-      { type: "progress", progress: 2 },
-      { type: "progress", progress: 3 },
-    ]);
-  });
-
-  it("can be used with async operations", async () => {
-    const step = createProgress(3);
-    const notifications = [];
-
-    for (let i = 0; i < 3; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      notifications.push(step());
-    }
-
-    expect(notifications).toHaveLength(3);
-    expect(notifications[2]).toEqual({
-      type: "progress",
-      progress: 3,
-      total: 3,
-    });
-  });
-});
-
-describe("createProgress() - edge cases", () => {
-  it("handles very large progress values", () => {
-    const step = createProgress();
-
-    for (let i = 0; i < 1000; i++) {
-      step();
-    }
-
-    const notification = step();
-    expect(notification.progress).toBe(1001);
-  });
-
-  it("handles decimal totals (rounds to integer)", () => {
-    const step = createProgress(5.7);
-    const notification = step();
-
-    expect(notification.total).toBe(5.7);
-  });
-
-  it("handles total of 1", () => {
-    const step = createProgress(1);
-    const notification = step();
-
-    expect(notification).toEqual({
-      type: "progress",
-      progress: 1,
-      total: 1,
-    });
-  });
-
-  it("notification object can be yielded in generator", () => {
-    const step = createProgress(3);
-
-    function* generator() {
-      yield step();
-      yield step();
-      yield step();
-      return "done";
-    }
-
-    const gen = generator();
-    expect(gen.next().value).toEqual({
-      type: "progress",
-      progress: 1,
-      total: 3,
-    });
-    expect(gen.next().value).toEqual({
-      type: "progress",
-      progress: 2,
-      total: 3,
-    });
-    expect(gen.next().value).toEqual({
-      type: "progress",
-      progress: 3,
-      total: 3,
-    });
-    expect(gen.next().value).toBe("done");
+    expect(data.result.content[0].text).toBe("indeterminate done");
   });
 });

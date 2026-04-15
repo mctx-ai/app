@@ -3,8 +3,8 @@
  *
  * Verifies the sampling integration wired in server.js:
  * - handleInitialize advertises sampling capability
- * - Client capabilities are stored and passed to tool handlers
- * - ask() is null when client does not support sampling
+ * - Client capabilities are stored and passed to tool handlers via res.ask
+ * - res.ask is null when client does not support sampling
  * - buildSendRequest sends correct JSON-RPC envelope
  * - buildSendRequest propagates JSON-RPC errors
  */
@@ -65,13 +65,13 @@ describe("handleInitialize - sampling capability advertisement", () => {
 });
 
 describe("handleInitialize - client capability storage", () => {
-  it("stores sampling capability and provides non-null ask to tool handler", async () => {
+  it("stores sampling capability and provides non-null res.ask to tool handler", async () => {
     const app = createServer();
 
     let receivedAsk;
-    const probe = (_mctx, _args, ask) => {
-      receivedAsk = ask;
-      return "ok";
+    const probe = (_mctx, _req, res) => {
+      receivedAsk = res.ask;
+      res.send("ok");
     };
     probe.description = "Probes the ask function";
     probe.input = {};
@@ -80,7 +80,7 @@ describe("handleInitialize - client capability storage", () => {
     // Initialize with sampling capability
     await initialize(app, { sampling: {} });
 
-    // Call the tool and capture what was passed as ask
+    // Call the tool and capture what was passed as res.ask
     await callTool(app, "probe", {});
 
     expect(receivedAsk).not.toBeNull();
@@ -88,14 +88,14 @@ describe("handleInitialize - client capability storage", () => {
   });
 });
 
-describe("ask is null when client does not support sampling", () => {
-  it("provides null ask to tool handler when client omits sampling capability", async () => {
+describe("res.ask is null when client does not support sampling", () => {
+  it("provides null res.ask to tool handler when client omits sampling capability", async () => {
     const app = createServer();
 
     let receivedAsk = "sentinel";
-    const probe = (_mctx, _args, ask) => {
-      receivedAsk = ask;
-      return "ok";
+    const probe = (_mctx, _req, res) => {
+      receivedAsk = res.ask;
+      res.send("ok");
     };
     probe.description = "Probes the ask function";
     probe.input = {};
@@ -104,7 +104,7 @@ describe("ask is null when client does not support sampling", () => {
     // Initialize WITHOUT sampling capability
     await initialize(app, {});
 
-    // Call the tool and capture what was passed as ask
+    // Call the tool and capture what was passed as res.ask
     await callTool(app, "probe", {});
 
     expect(receivedAsk).toBeNull();
@@ -129,7 +129,7 @@ describe("buildSendRequest - JSON-RPC envelope", () => {
     const fetchCalls = [];
     globalThis.fetch = async (url, init) => {
       fetchCalls.push({ url, init });
-      // Return a valid sampling response so ask() resolves
+      // Return a valid sampling response so res.ask() resolves
       return new Response(
         JSON.stringify({
           jsonrpc: "2.0",
@@ -142,10 +142,10 @@ describe("buildSendRequest - JSON-RPC envelope", () => {
 
     const SESSION_ID = "test-session-abc";
 
-    // Register a tool that calls ask()
-    const asker = async (_mctx, _args, ask) => {
-      await ask("hello from tool");
-      return "done";
+    // Register a tool that calls res.ask()
+    const asker = async (_mctx, _req, res) => {
+      await res.ask("hello from tool");
+      res.send("done");
     };
     asker.description = "Calls ask";
     asker.input = {};
@@ -202,13 +202,13 @@ describe("buildSendRequest - JSON-RPC error propagation", () => {
     };
 
     let caughtError = null;
-    const asker = async (_mctx, _args, ask) => {
+    const asker = async (_mctx, _req, res) => {
       try {
-        await ask("this will fail");
+        await res.ask("this will fail");
       } catch (err) {
         caughtError = err;
       }
-      return "done";
+      res.send("done");
     };
     asker.description = "Catches ask error";
     asker.input = {};

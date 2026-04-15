@@ -224,7 +224,7 @@ export declare const META_KEY_PATTERN: RegExp;
  * Request context passed as the third argument to all handler functions.
  * Populated from HTTP headers injected by the mctx dispatch worker.
  */
-export interface McpContext {
+export interface ModelContext {
   /**
    * Authenticated user ID, extracted from the X-Mctx-User-Id request header.
    * Undefined when no user ID header is present.
@@ -252,7 +252,7 @@ export interface McpContext {
  * Tool handler function (non-generator).
  * Receives arguments and optional ask function for LLM sampling.
  *
- * @param mctx - McpContext with userId, emit, and cancel
+ * @param mctx - ModelContext with userId, emit, and cancel
  * @param args - Tool arguments (validated against handler.input schema)
  * @param ask - Optional LLM sampling function (null if not supported)
  * @returns Tool result (string, object, or Promise thereof)
@@ -287,7 +287,7 @@ export interface ToolAnnotations {
 }
 
 export type ToolHandler = {
-  (mctx: McpContext, args: Record<string, any>, ask?: AskFunction | null): any | Promise<any>;
+  (mctx: ModelContext, args: Record<string, any>, ask?: AskFunction | null): any | Promise<any>;
   /** Tool description for documentation */
   description?: string;
   /** Input schema definition using T types */
@@ -302,7 +302,7 @@ export type ToolHandler = {
  * Generator tool handler function (for progress tracking).
  * Yields progress notifications and returns final result.
  *
- * @param mctx - McpContext with userId, emit, and cancel
+ * @param mctx - ModelContext with userId, emit, and cancel
  * @param args - Tool arguments
  * @param ask - Optional LLM sampling function
  * @yields Progress notifications or intermediate values
@@ -310,7 +310,7 @@ export type ToolHandler = {
  *
  * @example
  * ```typescript
- * function* migrate(mctx: McpContext, args: { tables: string[] }): Generator<ProgressNotification, string> {
+ * function* migrate(mctx: ModelContext, args: { tables: string[] }): Generator<ProgressNotification, string> {
  *   const step = createProgress(args.tables.length);
  *   for (const table of args.tables) {
  *     yield step();
@@ -322,7 +322,7 @@ export type ToolHandler = {
  */
 export type GeneratorToolHandler = {
   (
-    mctx: McpContext,
+    mctx: ModelContext,
     args: Record<string, any>,
     ask?: AskFunction | null,
   ): Generator<any, any, any> | AsyncGenerator<any, any, any>;
@@ -337,13 +337,13 @@ export type GeneratorToolHandler = {
  * Resource handler function.
  * Returns resource content (string, binary data, or object).
  *
- * @param mctx - McpContext with userId, emit, and cancel
+ * @param mctx - ModelContext with userId, emit, and cancel
  * @param params - Extracted URI template parameters (e.g., { id: '123' })
  * @param ask - Optional LLM sampling function
  * @returns Resource content
  */
 export type ResourceHandler = {
-  (mctx: McpContext, params: Record<string, string>, ask?: AskFunction | null): any | Promise<any>;
+  (mctx: ModelContext, params: Record<string, string>, ask?: AskFunction | null): any | Promise<any>;
   /** Resource name for display */
   name?: string;
   /** Resource description */
@@ -356,14 +356,14 @@ export type ResourceHandler = {
  * Prompt handler function.
  * Returns messages for LLM conversation or a conversation result.
  *
- * @param mctx - McpContext with userId, emit, and cancel
+ * @param mctx - ModelContext with userId, emit, and cancel
  * @param args - Prompt arguments
  * @param ask - Optional LLM sampling function
  * @returns Prompt messages (string, conversation result, or message array)
  */
 export type PromptHandler = {
   (
-    mctx: McpContext,
+    mctx: ModelContext,
     args: Record<string, any>,
     ask?: AskFunction | null,
   ): string | ConversationResult | Message[] | Promise<string | ConversationResult | Message[]>;

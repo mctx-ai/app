@@ -34,7 +34,7 @@ app.tool("greet", greet);
 
 **Handler contract:**
 
-- Receives `mctx` (McpContext) as first parameter — provides `mctx.userId`, `mctx.emit`, and `mctx.cancel`
+- Receives `mctx` (ModelContext) as first parameter — provides `mctx.userId`, `mctx.emit`, and `mctx.cancel`
 - Receives parsed arguments as second parameter
 - Third parameter `ask` is a function when the client advertises sampling capability, or `null` if the client does not support sampling — always check before calling
 - Returns `string`, `object` (auto-serialized), or MCP content array
@@ -59,7 +59,7 @@ user.mimeType = "application/json";
 app.resource("user://{userId}", user);
 ```
 
-Resource handlers receive `(mctx, params, ask)`. `mctx` is the McpContext. For static resources `params` is `{}`.
+Resource handlers receive `(mctx, params, ask)`. `mctx` is the ModelContext. For static resources `params` is `{}`.
 
 ### app.prompt(name, handler)
 
@@ -78,7 +78,7 @@ debug.input = { error: T.string({ required: true }) };
 app.prompt("debug", debug);
 ```
 
-Prompt handlers receive `(mctx, args, ask)`. `mctx` is the McpContext.
+Prompt handlers receive `(mctx, args, ask)`. `mctx` is the ModelContext.
 
 ### app.fetch(request, env, ctx)
 

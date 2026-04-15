@@ -38,7 +38,7 @@ describe("res.progress() in tool handlers", () => {
   });
 
   it("tool handler can call res.progress() without error", async () => {
-    const app = createServer();
+    const server = createServer();
 
     const progressTool = async (_mctx, _req, res) => {
       res.progress(1, 3);
@@ -47,7 +47,7 @@ describe("res.progress() in tool handlers", () => {
       res.send("done");
     };
     progressTool.input = {};
-    app.tool("progress-tool", progressTool);
+    server.tool("progress-tool", progressTool);
 
     const request = createRequest({
       jsonrpc: "2.0",
@@ -56,14 +56,14 @@ describe("res.progress() in tool handlers", () => {
       params: { name: "progress-tool", arguments: {} },
     });
 
-    const response = await app.fetch(request);
+    const response = await server.fetch(request);
     const data = await response.json();
 
     expect(data.result.content[0].text).toBe("done");
   });
 
   it("res.progress() accepts current without total (indeterminate)", async () => {
-    const app = createServer();
+    const server = createServer();
 
     const progressTool = async (_mctx, _req, res) => {
       res.progress(1);
@@ -71,7 +71,7 @@ describe("res.progress() in tool handlers", () => {
       res.send("indeterminate done");
     };
     progressTool.input = {};
-    app.tool("indeterminate", progressTool);
+    server.tool("indeterminate", progressTool);
 
     const request = createRequest({
       jsonrpc: "2.0",
@@ -80,7 +80,7 @@ describe("res.progress() in tool handlers", () => {
       params: { name: "indeterminate", arguments: {} },
     });
 
-    const response = await app.fetch(request);
+    const response = await server.fetch(request);
     const data = await response.json();
 
     expect(data.result.content[0].text).toBe("indeterminate done");

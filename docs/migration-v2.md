@@ -260,7 +260,7 @@ The CLI (`npx mctx-dev index.js`) continues to work unchanged.
 
 ### Scaffolded projects: exact version pins and `.npmrc`
 
-`create-mctx-app` generates projects with exact dependency version pins, `.npmrc` with `save-exact=true`, and `engines` enforcing Node >=22.
+`create-mctx-server` generates projects with exact dependency version pins, `.npmrc` with `save-exact=true`, and `engines` enforcing Node >=22.
 
 ---
 

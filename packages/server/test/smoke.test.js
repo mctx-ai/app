@@ -48,7 +48,7 @@ describe("package exports", () => {
 
 describe("basic functionality smoke test", () => {
   it("creates a server and responds to tools/list", async () => {
-    const app = createServer();
+    const server = createServer();
 
     const greet = (_mctx, { name }, res) => {
       res.send(`Hello, ${name}!`);
@@ -58,7 +58,7 @@ describe("basic functionality smoke test", () => {
       name: T.string({ required: true }),
     };
 
-    app.tool("greet", greet);
+    server.tool("greet", greet);
 
     const request = new Request("http://localhost", {
       method: "POST",
@@ -70,7 +70,7 @@ describe("basic functionality smoke test", () => {
       }),
     });
 
-    const response = await app.fetch(request);
+    const response = await server.fetch(request);
     const data = await response.json();
 
     expect(data.jsonrpc).toBe("2.0");
@@ -135,14 +135,14 @@ describe("import patterns", () => {
 
 describe("type safety", () => {
   it("createServer returns object with expected methods", () => {
-    const app = createServer();
+    const server = createServer();
 
-    expect(app).toBeDefined();
-    expect(typeof app).toBe("object");
-    expect(typeof app.tool).toBe("function");
-    expect(typeof app.resource).toBe("function");
-    expect(typeof app.prompt).toBe("function");
-    expect(typeof app.fetch).toBe("function");
+    expect(server).toBeDefined();
+    expect(typeof server).toBe("object");
+    expect(typeof server.tool).toBe("function");
+    expect(typeof server.resource).toBe("function");
+    expect(typeof server.prompt).toBe("function");
+    expect(typeof server.fetch).toBe("function");
   });
 
   it("T methods return objects with type property", () => {
@@ -163,7 +163,7 @@ describe("type safety", () => {
 describe("minimal working example", () => {
   it("runs a complete minimal MCP server", async () => {
     // This is the simplest possible working server
-    const app = createServer();
+    const server = createServer();
 
     // Register a tool
     const echo = (_mctx, { message }, res) => {
@@ -172,7 +172,7 @@ describe("minimal working example", () => {
     echo.input = {
       message: T.string({ required: true }),
     };
-    app.tool("echo", echo);
+    server.tool("echo", echo);
 
     // List tools
     const listRequest = new Request("http://localhost", {
@@ -184,7 +184,7 @@ describe("minimal working example", () => {
       }),
     });
 
-    const listResponse = await app.fetch(listRequest);
+    const listResponse = await server.fetch(listRequest);
     const listData = await listResponse.json();
 
     expect(listData.result.tools).toHaveLength(1);
@@ -203,7 +203,7 @@ describe("minimal working example", () => {
       }),
     });
 
-    const callResponse = await app.fetch(callRequest);
+    const callResponse = await server.fetch(callRequest);
     const callData = await callResponse.json();
 
     expect(callData.result.content[0].text).toBe("Hello, MCP!");
@@ -218,27 +218,27 @@ describe("version compatibility", () => {
 
   it("does not require TypeScript compilation for basic usage", () => {
     // Verify we can use the package without .d.ts files
-    const app = createServer();
+    const server = createServer();
 
     const tool = (_mctx, _req, res) => {
       res.send("result");
     };
     tool.input = {};
 
-    expect(() => app.tool("test", tool)).not.toThrow();
+    expect(() => server.tool("test", tool)).not.toThrow();
   });
 });
 
 describe("error handling smoke test", () => {
   it("handles invalid requests gracefully", async () => {
-    const app = createServer();
+    const server = createServer();
 
     const request = new Request("http://localhost", {
       method: "POST",
       body: "invalid json",
     });
 
-    const response = await app.fetch(request);
+    const response = await server.fetch(request);
     const data = await response.json();
 
     expect(data.error).toBeDefined();
@@ -246,7 +246,7 @@ describe("error handling smoke test", () => {
   });
 
   it("handles missing handlers gracefully", async () => {
-    const app = createServer();
+    const server = createServer();
 
     const request = new Request("http://localhost", {
       method: "POST",
@@ -261,7 +261,7 @@ describe("error handling smoke test", () => {
       }),
     });
 
-    const response = await app.fetch(request);
+    const response = await server.fetch(request);
     const data = await response.json();
 
     expect(data.error).toBeDefined();

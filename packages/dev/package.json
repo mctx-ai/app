@@ -1,7 +1,7 @@
 {
   "name": "@mctx-ai/dev",
   "version": "2.0.0",
-  "description": "Local development server for @mctx-ai/app with hot reload",
+  "description": "Local development server for @mctx-ai/mcp with hot reload",
   "type": "module",
   "main": "./src/cli.js",
   "bin": {
@@ -44,6 +44,6 @@
     "provenance": true
   },
   "peerDependencies": {
-    "@mctx-ai/app": "^2.0.0"
+    "@mctx-ai/mcp": "^2.0.0"
   }
 }

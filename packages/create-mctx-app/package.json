@@ -1,10 +1,10 @@
 {
-  "name": "create-mctx-app",
+  "name": "create-mctx-server",
   "version": "2.0.0",
   "description": "Create a new mctx App project",
   "type": "module",
   "bin": {
-    "create-mctx-app": "index.js"
+    "create-mctx-server": "index.js"
   },
   "files": [
     "index.js",

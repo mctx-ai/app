@@ -1,10 +1,10 @@
 ---
 title: Framework API Reference
-description: Complete reference for @mctx-ai/app — all exports, types, and patterns.
+description: Complete reference for @mctx-ai/mcp — all exports, types, and patterns.
 ---
 
 ```bash
-npm install @mctx-ai/app
+npm install @mctx-ai/mcp
 ```
 
 ## createServer()
@@ -12,7 +12,7 @@ npm install @mctx-ai/app
 Creates an MCP server instance.
 
 ```js
-import { createServer } from "@mctx-ai/app";
+import { createServer } from "@mctx-ai/mcp";
 const app = createServer();
 ```
 
@@ -202,7 +202,7 @@ Returns `Promise<string | null>` — the text content from the LLM response, or 
 Defines input schemas for tools and prompts. Produces JSON Schema.
 
 ```js
-import { T } from "@mctx-ai/app";
+import { T } from "@mctx-ai/mcp";
 ```
 
 ### T.string(options?)
@@ -259,7 +259,7 @@ T.object({
 Compiles a `fn.input` object into a JSON Schema `inputSchema` with `required` array. Used internally by the framework — available if you need raw schema generation.
 
 ```js
-import { buildInputSchema } from "@mctx-ai/app";
+import { buildInputSchema } from "@mctx-ai/mcp";
 
 const schema = buildInputSchema({
   name: T.string({ required: true }),
@@ -275,7 +275,7 @@ const schema = buildInputSchema({
 Builds multi-message prompt responses.
 
 ```js
-import { conversation } from "@mctx-ai/app";
+import { conversation } from "@mctx-ai/mcp";
 
 conversation(({ user, ai }) => [
   user.say("Hello"), // text message
@@ -292,7 +292,7 @@ conversation(({ user, ai }) => [
 Structured logging with RFC 5424 severity levels.
 
 ```js
-import { log } from "@mctx-ai/app";
+import { log } from "@mctx-ai/mcp";
 
 log.debug("Detailed info");
 log.info("Informational");
@@ -311,7 +311,7 @@ Logs are buffered internally with FIFO eviction at 10,000 entries. The buffer pe
 Returns a copy of the current log buffer without clearing it.
 
 ```js
-import { getLogBuffer } from "@mctx-ai/app";
+import { getLogBuffer } from "@mctx-ai/mcp";
 
 const entries = getLogBuffer();
 // [{ type: 'log', level: 'info', data: 'Server started' }, ...]
@@ -324,7 +324,7 @@ const entries = getLogBuffer();
 Clears all entries from the log buffer.
 
 ```js
-import { clearLogBuffer } from "@mctx-ai/app";
+import { clearLogBuffer } from "@mctx-ai/mcp";
 
 clearLogBuffer();
 ```
@@ -336,7 +336,7 @@ clearLogBuffer();
 The intended usage is to read and clear the buffer after each request completes, which is exactly how `mctx-dev` works:
 
 ```js
-import { getLogBuffer, clearLogBuffer } from "@mctx-ai/app";
+import { getLogBuffer, clearLogBuffer } from "@mctx-ai/mcp";
 
 // After handling a request:
 const logs = getLogBuffer();

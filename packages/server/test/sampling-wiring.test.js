@@ -54,9 +54,9 @@ async function callTool(app, toolName, args, headers = {}) {
 
 describe("handleInitialize - sampling capability advertisement", () => {
   it("advertises sampling capability in initialize response", async () => {
-    const app = createServer();
+    const server = createServer();
 
-    const data = await initialize(app);
+    const data = await initialize(server);
 
     expect(data.result.capabilities).toBeDefined();
     expect(data.result.capabilities.sampling).toBeDefined();
@@ -66,7 +66,7 @@ describe("handleInitialize - sampling capability advertisement", () => {
 
 describe("handleInitialize - client capability storage", () => {
   it("stores sampling capability and provides non-null res.ask to tool handler", async () => {
-    const app = createServer();
+    const server = createServer();
 
     let receivedAsk;
     const probe = (_mctx, _req, res) => {
@@ -75,13 +75,13 @@ describe("handleInitialize - client capability storage", () => {
     };
     probe.description = "Probes the ask function";
     probe.input = {};
-    app.tool("probe", probe);
+    server.tool("probe", probe);
 
     // Initialize with sampling capability
-    await initialize(app, { sampling: {} });
+    await initialize(server, { sampling: {} });
 
     // Call the tool and capture what was passed as res.ask
-    await callTool(app, "probe", {});
+    await callTool(server, "probe", {});
 
     expect(receivedAsk).not.toBeNull();
     expect(typeof receivedAsk).toBe("function");
@@ -90,7 +90,7 @@ describe("handleInitialize - client capability storage", () => {
 
 describe("res.ask is null when client does not support sampling", () => {
   it("provides null res.ask to tool handler when client omits sampling capability", async () => {
-    const app = createServer();
+    const server = createServer();
 
     let receivedAsk = "sentinel";
     const probe = (_mctx, _req, res) => {
@@ -99,13 +99,13 @@ describe("res.ask is null when client does not support sampling", () => {
     };
     probe.description = "Probes the ask function";
     probe.input = {};
-    app.tool("probe", probe);
+    server.tool("probe", probe);
 
     // Initialize WITHOUT sampling capability
-    await initialize(app, {});
+    await initialize(server, {});
 
     // Call the tool and capture what was passed as res.ask
-    await callTool(app, "probe", {});
+    await callTool(server, "probe", {});
 
     expect(receivedAsk).toBeNull();
   });
@@ -123,7 +123,7 @@ describe("buildSendRequest - JSON-RPC envelope", () => {
   });
 
   it("posts correct JSON-RPC envelope to /_mctx/sampling with session ID header", async () => {
-    const app = createServer();
+    const server = createServer();
 
     // Mock fetch to capture the outgoing request
     const fetchCalls = [];
@@ -149,13 +149,13 @@ describe("buildSendRequest - JSON-RPC envelope", () => {
     };
     asker.description = "Calls ask";
     asker.input = {};
-    app.tool("asker", asker);
+    server.tool("asker", asker);
 
     // Initialize with sampling capability
-    await initialize(app, { sampling: {} });
+    await initialize(server, { sampling: {} });
 
     // Call the tool, passing the session ID header
-    await callTool(app, "asker", {}, { "Mcp-Session-Id": SESSION_ID });
+    await callTool(server, "asker", {}, { "Mcp-Session-Id": SESSION_ID });
 
     expect(fetchCalls).toHaveLength(1);
 
@@ -187,7 +187,7 @@ describe("buildSendRequest - JSON-RPC error propagation", () => {
   });
 
   it("propagates JSON-RPC error message when server returns an error envelope", async () => {
-    const app = createServer();
+    const server = createServer();
 
     // Mock fetch to return a JSON-RPC error response
     globalThis.fetch = async () => {
@@ -212,13 +212,13 @@ describe("buildSendRequest - JSON-RPC error propagation", () => {
     };
     asker.description = "Catches ask error";
     asker.input = {};
-    app.tool("asker", asker);
+    server.tool("asker", asker);
 
     // Initialize with sampling capability
-    await initialize(app, { sampling: {} });
+    await initialize(server, { sampling: {} });
 
     // Call the tool
-    await callTool(app, "asker", {});
+    await callTool(server, "asker", {});
 
     // The error from JSON-RPC is "Invalid Request", but createAsk wraps it
     // with "Sampling request failed: <original message>"

@@ -7,21 +7,21 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mctx-ai/app"><img src="https://img.shields.io/npm/v/@mctx-ai/app" alt="npm version"/></a>
-  <a href="https://www.npmjs.com/package/@mctx-ai/app"><img src="https://img.shields.io/npm/l/@mctx-ai/app" alt="license"/></a>
+  <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/v/@mctx-ai/mcp" alt="npm version"/></a>
+  <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/l/@mctx-ai/mcp" alt="license"/></a>
   <a href="https://github.com/mctx-ai/app/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/app/ci.yml" alt="CI"/></a>
 </p>
 
-`@mctx-ai/app` is a minimal framework for building [Model Context Protocol](https://modelcontextprotocol.io) servers. Register tools, resources, and prompts — the framework handles protocol negotiation, input validation, error sanitization, and CORS. You write the business logic.
+`@mctx-ai/mcp` is a minimal framework for building [Model Context Protocol](https://modelcontextprotocol.io) servers. Register tools, resources, and prompts — the framework handles protocol negotiation, input validation, error sanitization, and CORS. You write the business logic.
 
 ---
 
 ## Quick Start
 
 ```javascript
-import { createServer, T } from "@mctx-ai/app";
+import { createServer, T } from "@mctx-ai/mcp";
 
-const app = createServer({
+const server = createServer({
   instructions: "A greeting server. Use the greet tool to say hello.",
 });
 
@@ -34,9 +34,9 @@ greet.input = {
   name: T.string({ required: true, description: "Name to greet" }),
 };
 
-app.tool("greet", greet);
+server.tool("greet", greet);
 
-export default { fetch: app.fetch };
+export default { fetch: server.fetch };
 ```
 
 That's a working MCP server. Run it locally with `npx mctx-dev index.js`.
@@ -48,7 +48,7 @@ That's a working MCP server. Run it locally with `npx mctx-dev index.js`.
 **Scaffold a new project (recommended):**
 
 ```bash
-npx create-mctx-app my-app
+npx create-mctx-server my-app
 cd my-app
 npm install
 npx mctx-dev index.js
@@ -61,7 +61,7 @@ npx mctx-dev index.js
 **Add to an existing project:**
 
 ```bash
-npm install @mctx-ai/app
+npm install @mctx-ai/mcp
 ```
 
 **Run the dev server:**
@@ -120,7 +120,7 @@ search.input = {
   limit: T.number({ default: 10, description: "Max results" }),
 };
 
-app.tool("search", search);
+server.tool("search", search);
 ```
 
 For long-running tools, report progress with `res.progress(current, total)`:
@@ -139,7 +139,7 @@ migrate.input = {
   tables: T.array({ required: true, items: T.string() }),
 };
 
-app.tool("migrate", migrate);
+server.tool("migrate", migrate);
 ```
 
 ### Resources
@@ -153,7 +153,7 @@ function readme(mctx, req, res) {
 }
 
 readme.mimeType = "text/markdown";
-app.resource("docs://readme", readme);
+server.resource("docs://readme", readme);
 
 // Dynamic template — {userId} is extracted and available on req
 function getUser(mctx, req, res) {
@@ -162,7 +162,7 @@ function getUser(mctx, req, res) {
 
 getUser.description = "Fetch a user by ID";
 getUser.mimeType = "application/json";
-app.resource("user://{userId}", getUser);
+server.resource("user://{userId}", getUser);
 ```
 
 ### Prompts
@@ -180,13 +180,13 @@ codeReview.input = {
   language: T.string({ description: "Programming language" }),
 };
 
-app.prompt("code-review", codeReview);
+server.prompt("code-review", codeReview);
 ```
 
 For multi-message prompts with images or embedded resources, use `conversation()`:
 
 ```javascript
-import { conversation } from "@mctx-ai/app";
+import { conversation } from "@mctx-ai/mcp";
 
 function debug(mctx, req, res) {
   res.send(
@@ -205,7 +205,7 @@ debug.input = {
   screenshot: T.string({ required: true, description: "Base64 image data" }),
 };
 
-app.prompt("debug", debug);
+server.prompt("debug", debug);
 ```
 
 ### LLM Sampling
@@ -239,7 +239,7 @@ All types accept `required`, `description`, and `default`.
 ### Logging
 
 ```javascript
-import { log } from "@mctx-ai/app";
+import { log } from "@mctx-ai/mcp";
 
 log.info("Server started");
 log.warning("Rate limit approaching");
@@ -268,7 +268,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) and [GitHub Issues](https://github.com/
 
 - [Documentation](https://docs.mctx.ai)
 - [Example Server](https://github.com/mctx-ai/example-app)
-- [npm: @mctx-ai/app](https://www.npmjs.com/package/@mctx-ai/app)
+- [npm: @mctx-ai/mcp](https://www.npmjs.com/package/@mctx-ai/mcp)
 
 ---
 

@@ -700,7 +700,7 @@ export function createServer(options = {}) {
       protocolVersion: "2025-11-25",
       capabilities,
       serverInfo: {
-        name: "@mctx-ai/app",
+        name: "@mctx-ai/mcp",
         version,
       },
     };

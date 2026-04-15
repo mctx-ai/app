@@ -26,7 +26,7 @@ mkdirSync(projectName, { recursive: true });
 const packageJson = {
   name: projectName,
   version: "0.0.1",
-  description: "An MCP server built with @mctx-ai/app",
+  description: "An MCP server built with @mctx-ai/mcp",
   type: "module",
   main: "dist/index.js",
   scripts: {
@@ -35,7 +35,7 @@ const packageJson = {
       "esbuild index.js --bundle --minify --platform=node --format=esm --outfile=dist/index.js",
   },
   dependencies: {
-    "@mctx-ai/app": `${version}`,
+    "@mctx-ai/mcp": `${version}`,
   },
   devDependencies: {
     "@mctx-ai/dev": `${version}`,
@@ -50,9 +50,9 @@ const packageJson = {
 writeFileSync(join(projectName, "package.json"), JSON.stringify(packageJson, null, 2) + "\n");
 
 // Generate index.js
-const indexJs = `import { createServer, T } from '@mctx-ai/app';
+const indexJs = `import { createServer, T } from '@mctx-ai/mcp';
 
-const app = createServer({
+const server = createServer({
   instructions: 'This server provides a simple greeting tool. Use the greet tool to say hello to someone by name.',
 });
 
@@ -64,11 +64,11 @@ greet.description = 'Greet someone by name';
 greet.input = {
   name: T.string({ required: true, description: 'Name to greet' }),
 };
-app.tool('greet', greet);
+server.tool('greet', greet);
 
 // Learn more: https://docs.mctx.ai/framework/tools
 
-export default app;
+export default server;
 `;
 
 writeFileSync(join(projectName, "index.js"), indexJs);
@@ -89,7 +89,7 @@ writeFileSync(join(projectName, ".npmrc"), npmrc);
 // Generate README.md
 const readme = `# ${projectName}
 
-An MCP server built with [@mctx-ai/app](https://github.com/mctx-ai/app).
+An MCP server built with [@mctx-ai/mcp](https://github.com/mctx-ai/app).
 
 ## Development
 
@@ -112,7 +112,7 @@ Create a separate file for your handler (e.g. \`tools/my-tool.js\`):
 
 \`\`\`javascript
 // tools/my-tool.js
-import { T } from '@mctx-ai/app';
+import { T } from '@mctx-ai/mcp';
 
 // Handlers receive (mctx, req, res):
 //   mctx — model context
@@ -136,7 +136,7 @@ Then import and register it in \`index.js\`:
 \`\`\`javascript
 // index.js
 import { myTool } from './tools/my-tool.js';
-app.tool('my-tool', myTool);
+server.tool('my-tool', myTool);
 \`\`\`
 
 ## Build

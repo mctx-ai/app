@@ -98,11 +98,11 @@ function myHandler(mctx, req, res) {
 }
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `mctx` | `ModelContext` | Per-request context. `mctx.userId` is the authenticated user ID (or `undefined`). |
-| `req` | `object` | Input arguments, validated against the handler's `input` schema. |
-| `res` | `Response` | Output port. Call `res.send()` to return a result. |
+| Parameter | Type           | Description                                                                       |
+| --------- | -------------- | --------------------------------------------------------------------------------- |
+| `mctx`    | `ModelContext` | Per-request context. `mctx.userId` is the authenticated user ID (or `undefined`). |
+| `req`     | `object`       | Input arguments, validated against the handler's `input` schema.                  |
+| `res`     | `Response`     | Output port. Call `res.send()` to return a result.                                |
 
 ### Tools
 
@@ -189,12 +189,14 @@ For multi-message prompts with images or embedded resources, use `conversation()
 import { conversation } from "@mctx-ai/app";
 
 function debug(mctx, req, res) {
-  res.send(conversation(({ user, ai }) => [
-    user.say("I hit this error:"),
-    user.say(req.error),
-    user.attach(req.screenshot, "image/png"),
-    ai.say("I'll analyze the error and screenshot together."),
-  ]));
+  res.send(
+    conversation(({ user, ai }) => [
+      user.say("I hit this error:"),
+      user.say(req.error),
+      user.attach(req.screenshot, "image/png"),
+      ai.say("I'll analyze the error and screenshot together."),
+    ]),
+  );
 }
 
 debug.description = "Debug with error + screenshot";
@@ -224,13 +226,13 @@ async function summarize(mctx, req, res) {
 
 `T` builds JSON Schema definitions for tool and prompt inputs.
 
-| Type | Example |
-|------|---------|
-| `T.string()` | `T.string({ required: true, enum: ["a", "b"] })` |
-| `T.number()` | `T.number({ min: 0, max: 100 })` |
-| `T.boolean()` | `T.boolean({ default: false })` |
-| `T.array()` | `T.array({ items: T.string() })` |
-| `T.object()` | `T.object({ properties: { key: T.string() } })` |
+| Type          | Example                                          |
+| ------------- | ------------------------------------------------ |
+| `T.string()`  | `T.string({ required: true, enum: ["a", "b"] })` |
+| `T.number()`  | `T.number({ min: 0, max: 100 })`                 |
+| `T.boolean()` | `T.boolean({ default: false })`                  |
+| `T.array()`   | `T.array({ items: T.string() })`                 |
+| `T.object()`  | `T.object({ properties: { key: T.string() } })`  |
 
 All types accept `required`, `description`, and `default`.
 

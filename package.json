@@ -11,6 +11,7 @@
     "packages/*"
   ],
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks && chmod +x .githooks/pre-push",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

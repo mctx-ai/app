@@ -252,7 +252,15 @@ PRs are **squash merged**. The PR title becomes the commit subject and the PR de
 
 ### Hooks and Automation
 
-No commit hooks (no husky, no lint-staged). All quality checks run in CI.
+A pre-push git hook runs quality checks before any push. It is stored in `.githooks/pre-push` (tracked in the repo) and runs:
+
+1. `npm run format:check` — Prettier formatting check
+2. `npm run lint` — ESLint across all workspaces
+3. `npm test` — Full test suite across all workspaces
+
+**Installation:** Run `npm install` (or `npm run prepare`) once after cloning. The `prepare` script in root `package.json` sets `core.hooksPath` to `.githooks` via `git config core.hooksPath .githooks`.
+
+There are no commit hooks (no husky, no lint-staged). The pre-push hook is the only local quality gate; all checks also run in CI.
 
 ---
 

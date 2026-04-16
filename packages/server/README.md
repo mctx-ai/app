@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>mctx — The best way to Build an MCP server</strong>
+  <strong>mctx — The best way to Build an MCP Server</strong>
 </p>
 
 <p align="center">

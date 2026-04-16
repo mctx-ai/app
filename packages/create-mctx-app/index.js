@@ -26,7 +26,7 @@ mkdirSync(projectName, { recursive: true });
 const packageJson = {
   name: projectName,
   version: "0.0.1",
-  description: "Built with mctx — The best way to Build an MCP server",
+  description: "Built with mctx — The best way to Build an MCP Server",
   type: "module",
   main: "dist/index.js",
   scripts: {
@@ -89,7 +89,7 @@ writeFileSync(join(projectName, ".npmrc"), npmrc);
 // Generate README.md
 const readme = `# ${projectName}
 
-An MCP server built with mctx — The best way to Build an MCP server. See [@mctx-ai/mcp](https://github.com/mctx-ai/app) for the framework.
+An MCP server built with mctx — The best way to Build an MCP Server. See [@mctx-ai/mcp](https://github.com/mctx-ai/app) for the framework.
 
 ## Development
 

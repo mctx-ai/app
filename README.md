@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>mctx — The best way to Build an MCP server</strong>
+  <strong>mctx — The best way to Build an MCP Server</strong>
 </p>
 
 <p align="center">
@@ -12,7 +12,7 @@
   <a href="https://github.com/mctx-ai/app/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/app/ci.yml" alt="CI"/></a>
 </p>
 
-`@mctx-ai/mcp` is the best way to Build an MCP server. Register tools, resources, and prompts — the framework handles protocol negotiation, input validation, error sanitization, and CORS. You write the business logic.
+`@mctx-ai/mcp` is the best way to Build an MCP Server. Register tools, resources, and prompts — the framework handles protocol negotiation, input validation, error sanitization, and CORS. You write the business logic.
 
 ---
 

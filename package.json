@@ -1,7 +1,7 @@
 {
   "name": "@mctx-ai/app-monorepo",
   "version": "0.1.0",
-  "description": "mctx — The best way to Build an MCP server",
+  "description": "mctx — The best way to Build an MCP Server",
   "private": true,
   "type": "module",
   "engines": {

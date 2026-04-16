@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>Build MCP servers with an Express-like API.</strong>
+  <strong>mctx — The best way to Build an MCP server</strong>
 </p>
 
 <p align="center">

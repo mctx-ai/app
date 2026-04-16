@@ -252,7 +252,7 @@ Levels follow RFC 5424: `debug`, `info`, `notice`, `warning`, `error`, `critical
 
 ## Deploy
 
-Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai). Your server goes live — you keep 80% of every subscription.
+Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai). Your server goes live.
 
 Full deployment guide at [docs.mctx.ai](https://docs.mctx.ai).
 

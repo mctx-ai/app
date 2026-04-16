@@ -263,7 +263,7 @@ npm run dev
 
 ## Deploy
 
-Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai). You keep 80% — mctx handles hosting, auth, payments, and discovery.
+Push to GitHub and connect your repo at [mctx.ai](https://mctx.ai).
 
 Full deployment guide at [docs.mctx.ai](https://docs.mctx.ai).
 

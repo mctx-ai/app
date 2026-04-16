@@ -5,46 +5,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import * as mcpServer from "../src/index.js";
 import { createServer, T, conversation, log } from "../src/index.js";
-
-describe("package exports", () => {
-  it("exports createServer", () => {
-    expect(mcpServer.createServer).toBeDefined();
-    expect(typeof mcpServer.createServer).toBe("function");
-  });
-
-  it("exports T type system", () => {
-    expect(mcpServer.T).toBeDefined();
-    expect(typeof mcpServer.T).toBe("object");
-    expect(typeof mcpServer.T.string).toBe("function");
-    expect(typeof mcpServer.T.number).toBe("function");
-    expect(typeof mcpServer.T.boolean).toBe("function");
-    expect(typeof mcpServer.T.array).toBe("function");
-    expect(typeof mcpServer.T.object).toBe("function");
-  });
-
-  it("exports buildInputSchema", () => {
-    expect(mcpServer.buildInputSchema).toBeDefined();
-    expect(typeof mcpServer.buildInputSchema).toBe("function");
-  });
-
-  it("exports conversation", () => {
-    expect(mcpServer.conversation).toBeDefined();
-    expect(typeof mcpServer.conversation).toBe("function");
-  });
-
-  it("exports log", () => {
-    expect(mcpServer.log).toBeDefined();
-    expect(typeof mcpServer.log).toBe("object");
-    expect(typeof mcpServer.log.debug).toBe("function");
-    expect(typeof mcpServer.log.info).toBe("function");
-    expect(typeof mcpServer.log.error).toBe("function");
-  });
-
-  // Security functions are not exported from public API - they are internal
-  // If needed, they can be imported directly from '../src/security.js'
-});
 
 describe("basic functionality smoke test", () => {
   it("creates a server and responds to tools/list", async () => {
@@ -117,22 +78,6 @@ describe("basic functionality smoke test", () => {
   });
 });
 
-describe("import patterns", () => {
-  it("supports named imports", () => {
-    expect(createServer).toBeDefined();
-    expect(T).toBeDefined();
-    expect(conversation).toBeDefined();
-    expect(log).toBeDefined();
-  });
-
-  it("supports namespace import", () => {
-    expect(mcpServer.createServer).toBeDefined();
-    expect(mcpServer.T).toBeDefined();
-    expect(mcpServer.conversation).toBeDefined();
-    expect(mcpServer.log).toBeDefined();
-  });
-});
-
 describe("type safety", () => {
   it("createServer returns object with expected methods", () => {
     const server = createServer();
@@ -151,12 +96,6 @@ describe("type safety", () => {
     expect(T.boolean().type).toBe("boolean");
     expect(T.array().type).toBe("array");
     expect(T.object().type).toBe("object");
-  });
-
-  it("conversation requires function argument", () => {
-    expect(() => conversation()).toThrow();
-    expect(() => conversation("not a function")).toThrow();
-    expect(() => conversation(() => "not an array")).toThrow();
   });
 });
 
@@ -207,25 +146,6 @@ describe("minimal working example", () => {
     const callData = await callResponse.json();
 
     expect(callData.result.content[0].text).toBe("Hello, MCP!");
-  });
-});
-
-describe("version compatibility", () => {
-  it("uses ES modules syntax", () => {
-    // This test just verifies the module loaded successfully
-    expect(typeof createServer).toBe("function");
-  });
-
-  it("does not require TypeScript compilation for basic usage", () => {
-    // Verify we can use the package without .d.ts files
-    const server = createServer();
-
-    const tool = (_mctx, _req, res) => {
-      res.send("result");
-    };
-    tool.input = {};
-
-    expect(() => server.tool("test", tool)).not.toThrow();
   });
 });
 

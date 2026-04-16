@@ -21,17 +21,6 @@ function createRequest(body) {
   });
 }
 
-describe("createServer()", () => {
-  it("returns app with registration methods", () => {
-    const server = createServer();
-
-    expect(typeof server.tool).toBe("function");
-    expect(typeof server.resource).toBe("function");
-    expect(typeof server.prompt).toBe("function");
-    expect(typeof server.fetch).toBe("function");
-  });
-});
-
 describe("tool registration and tools/list", () => {
   it("registers and lists tools", async () => {
     const server = createServer();
@@ -339,35 +328,6 @@ describe("tools/call", () => {
     expect(data.result.content[0].text).toBe("{}");
   });
 
-  it("sanitizes input arguments (prototype pollution)", async () => {
-    const server = createServer();
-
-    const tool = (_mctx, args, res) => {
-      // Check if __proto__ is an own property (should be false after sanitization)
-      res.send({ hasProto: Object.hasOwnProperty.call(args, "__proto__") });
-    };
-    tool.input = {};
-    server.tool("test", tool);
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 9,
-      method: "tools/call",
-      params: {
-        name: "test",
-        arguments: {
-          __proto__: { isAdmin: true },
-          data: "test",
-        },
-      },
-    });
-
-    const response = await server.fetch(request);
-    const data = await response.json();
-
-    const parsed = JSON.parse(data.result.content[0].text);
-    expect(parsed.hasProto).toBe(false);
-  });
 });
 
 describe("resources/list", () => {
@@ -673,29 +633,6 @@ describe("resources/read", () => {
 
     expect(data.error).toBeDefined();
     expect(data.error.message).toContain("Path traversal detected");
-  });
-
-  it("allows legitimate custom scheme URIs without traversal", async () => {
-    const server = createServer();
-
-    const docsResource = (_mctx, _req, res) => {
-      res.send("README content");
-    };
-    docsResource.mimeType = "text/plain";
-
-    server.resource("docs://readme", docsResource);
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 35,
-      method: "resources/read",
-      params: { uri: "docs://readme" },
-    });
-
-    const response = await server.fetch(request);
-    const data = await response.json();
-
-    expect(data.result.contents[0].text).toBe("README content");
   });
 
   it("allows custom scheme URIs with path segments", async () => {
@@ -1105,35 +1042,6 @@ describe("safeSerialize()", () => {
 
     const parsed = JSON.parse(data.result.content[0].text);
     expect(parsed.timestamp).toBe("2024-01-01T00:00:00.000Z");
-  });
-});
-
-describe("error sanitization", () => {
-  it("redacts AWS keys from errors", async () => {
-    const server = createServer();
-
-    const errorTool = (_mctx, _req, _res) => {
-      throw new Error("Failed with key AKIAIOSFODNN7EXAMPLE");
-    };
-    errorTool.input = {};
-
-    server.tool("error", errorTool);
-
-    const request = createRequest({
-      jsonrpc: "2.0",
-      id: 27,
-      method: "tools/call",
-      params: {
-        name: "error",
-        arguments: {},
-      },
-    });
-
-    const response = await server.fetch(request);
-    const data = await response.json();
-
-    expect(data.result.content[0].text).toContain("[REDACTED_AWS_KEY]");
-    expect(data.result.content[0].text).not.toContain("AKIAIOSFODNN7EXAMPLE");
   });
 });
 

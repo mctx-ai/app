@@ -26,7 +26,7 @@ const server = createServer({
 });
 
 function greet(mctx, req, res) {
-  res.send(`Hello, ${req.name}!`);
+  res.send(`Hello, ${req.name}! (user: ${mctx.userId || "anonymous"})`);
 }
 
 greet.description = "Greet someone by name";
@@ -56,7 +56,7 @@ npx mctx-dev index.js
 
 **Use the template repo:**
 
-[github.com/mctx-ai/example-app](https://github.com/mctx-ai/example-app) — click "Use this template" on GitHub.
+[github.com/mctx-ai/example-app](https://github.com/new?template_name=example-app&template_owner=mctx-ai) — click "Use this template" on GitHub.
 
 **Add to an existing project:**
 
@@ -267,7 +267,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) and [GitHub Issues](https://github.com/
 ## Links
 
 - [Documentation](https://docs.mctx.ai)
-- [Example Server](https://github.com/mctx-ai/example-app)
+- [Example Server](https://github.com/new?template_name=example-app&template_owner=mctx-ai)
 - [npm: @mctx-ai/mcp](https://www.npmjs.com/package/@mctx-ai/mcp)
 
 ---

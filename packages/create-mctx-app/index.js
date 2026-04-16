@@ -58,7 +58,7 @@ const server = createServer({
 
 // A simple greeting tool
 function greet(mctx, req, res) {
-  res.send(\`Hello, \${req.name}! Welcome to mctx.\`);
+  res.send(\`Hello, \${req.name}! (user: \${mctx.userId || "anonymous"})\`);
 }
 greet.description = 'Greet someone by name';
 greet.input = {

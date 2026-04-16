@@ -327,7 +327,6 @@ describe("tools/call", () => {
     expect(data.result).toBeDefined();
     expect(data.result.content[0].text).toBe("{}");
   });
-
 });
 
 describe("resources/list", () => {

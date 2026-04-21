@@ -8,7 +8,7 @@ Thank you for your interest in contributing! I welcome contributions from the co
 
    ```bash
    git clone https://github.com/mctx-ai/mcp.git
-   cd app
+   cd mcp
    ```
 
 2. **Install dependencies:**

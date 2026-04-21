@@ -25,7 +25,7 @@ mkdirSync(projectName, { recursive: true });
 const packageJson = {
   name: projectName,
   version: "0.0.1",
-  description: "An App built with @mctx-ai/app",
+  description: "An App built with @mctx-ai/mcp",
   type: "module",
   main: "dist/index.js",
   scripts: {
@@ -34,7 +34,7 @@ const packageJson = {
       "esbuild index.js --bundle --minify --platform=node --format=esm --outfile=dist/index.js",
   },
   dependencies: {
-    "@mctx-ai/app": `^${version}`,
+    "@mctx-ai/mcp": `^${version}`,
   },
   devDependencies: {
     "@mctx-ai/dev": `^${version}`,
@@ -48,7 +48,7 @@ const packageJson = {
 writeFileSync(join(projectName, "package.json"), JSON.stringify(packageJson, null, 2) + "\n");
 
 // Generate index.js
-const indexJs = `import { createServer, T } from '@mctx-ai/app';
+const indexJs = `import { createServer, T } from '@mctx-ai/mcp';
 
 const app = createServer({
   instructions: 'This server provides a simple greeting tool. Use the greet tool to say hello to someone by name.',
@@ -81,7 +81,7 @@ writeFileSync(join(projectName, ".gitignore"), gitignore);
 // Generate README.md
 const readme = `# ${projectName}
 
-An App built with [@mctx-ai/app](https://github.com/mctx-ai/app).
+An App built with [@mctx-ai/mcp](https://github.com/mctx-ai/mcp).
 
 ## Development
 
@@ -101,7 +101,7 @@ npx mctx-dev index.js --port 8080
 ## Add a Tool
 
 \`\`\`javascript
-import { T } from '@mctx-ai/app';
+import { T } from '@mctx-ai/mcp';
 import app from './index.js';
 
 // Handlers receive ({ field1, field2 }, ask):

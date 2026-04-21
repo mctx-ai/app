@@ -7,17 +7,17 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/@mctx-ai/app"><img src="https://img.shields.io/npm/v/@mctx-ai/app" alt="npm version"/></a>
-  <a href="https://www.npmjs.com/package/@mctx-ai/app"><img src="https://img.shields.io/npm/l/@mctx-ai/app" alt="license"/></a>
-  <a href="https://github.com/mctx-ai/app/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/app/ci.yml" alt="CI"/></a>
+  <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/v/@mctx-ai/mcp" alt="npm version"/></a>
+  <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/l/@mctx-ai/mcp" alt="license"/></a>
+  <a href="https://github.com/mctx-ai/mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/app/ci.yml" alt="CI"/></a>
 </p>
 
 ```bash
-npm install @mctx-ai/app
+npm install @mctx-ai/mcp
 ```
 
 ```javascript
-import { createServer, T } from "@mctx-ai/app";
+import { createServer, T } from "@mctx-ai/mcp";
 
 const app = createServer({
   instructions: "A greeting server. Use the greet tool to say hello.",
@@ -127,7 +127,7 @@ app.prompt("code-review", codeReview);
 For multi-message prompts with images or embedded resources:
 
 ```javascript
-import { conversation } from "@mctx-ai/app";
+import { conversation } from "@mctx-ai/mcp";
 
 function debug({ error, screenshot }) {
   return conversation(({ user, ai }) => [
@@ -166,7 +166,7 @@ All types accept `required`, `description`, and `default`.
 `buildInputSchema` converts a T-based input definition into a valid JSON Schema object. The framework calls this internally, but you can use it directly when you need the schema for validation or documentation.
 
 ```javascript
-import { buildInputSchema, T } from "@mctx-ai/app";
+import { buildInputSchema, T } from "@mctx-ai/mcp";
 
 const schema = buildInputSchema({
   name: T.string({ required: true }),
@@ -184,7 +184,7 @@ const schema = buildInputSchema({
 Use generator functions and `createProgress()` for long-running tools.
 
 ```javascript
-import { createProgress } from "@mctx-ai/app";
+import { createProgress } from "@mctx-ai/mcp";
 
 function* migrate({ tables }) {
   const step = createProgress(tables.length);
@@ -204,7 +204,7 @@ app.tool("migrate", migrate);
 `PROGRESS_DEFAULTS` contains the guardrail values the framework enforces on generator tools: `maxExecutionTime` (60000ms) and `maxYields` (10000). Tools that exceed either limit are stopped automatically.
 
 ```javascript
-import { PROGRESS_DEFAULTS } from "@mctx-ai/app";
+import { PROGRESS_DEFAULTS } from "@mctx-ai/mcp";
 
 console.log(PROGRESS_DEFAULTS.maxExecutionTime); // 60000
 console.log(PROGRESS_DEFAULTS.maxYields); // 10000
@@ -213,7 +213,7 @@ console.log(PROGRESS_DEFAULTS.maxYields); // 10000
 ### Structured Logging
 
 ```javascript
-import { log } from "@mctx-ai/app";
+import { log } from "@mctx-ai/mcp";
 
 log.info("Server started");
 log.warning("Rate limit approaching");
@@ -225,7 +225,7 @@ Levels follow RFC 5424: `debug`, `info`, `notice`, `warning`, `error`, `critical
 Log entries are buffered internally. Use `getLogBuffer` to read them and `clearLogBuffer` to flush the buffer.
 
 ```javascript
-import { getLogBuffer, clearLogBuffer } from "@mctx-ai/app";
+import { getLogBuffer, clearLogBuffer } from "@mctx-ai/mcp";
 
 const entries = getLogBuffer();
 // entries: Array of LogNotification objects with level, logger, and data fields
@@ -346,13 +346,13 @@ Full deployment guide at [docs.mctx.ai](https://docs.mctx.ai).
 ## Links
 
 - [Documentation](https://docs.mctx.ai)
-- [Example Server](https://github.com/mctx-ai/example-app)
-- [GitHub Issues](https://github.com/mctx-ai/app/issues)
+- [Example Server](https://github.com/mctx-ai/example-mcp-server)
+- [GitHub Issues](https://github.com/mctx-ai/mcp/issues)
 - [Feedback](https://github.com/mctx-ai/feedback)
 
 ---
 
 <p align="center">
-  <a href="https://mctx.ai">mctx</a> · <a href="https://docs.mctx.ai">Docs</a> · <a href="https://github.com/mctx-ai/app">GitHub</a><br/>
+  <a href="https://mctx.ai">mctx</a> · <a href="https://docs.mctx.ai">Docs</a> · <a href="https://github.com/mctx-ai/mcp">GitHub</a><br/>
   MIT License
 </p>

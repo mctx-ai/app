@@ -1,4 +1,4 @@
-# Contributing to @mctx-ai/app
+# Contributing to @mctx-ai/mcp
 
 Thank you for your interest in contributing! I welcome contributions from the community.
 
@@ -7,7 +7,7 @@ Thank you for your interest in contributing! I welcome contributions from the co
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/mctx-ai/app.git
+   git clone https://github.com/mctx-ai/mcp.git
    cd app
    ```
 

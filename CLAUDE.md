@@ -36,9 +36,9 @@ Note: npm is included with Node.js, so no additional setup action is required.
 
 Three npm workspaces in `packages/` (defined via `"workspaces": ["packages/*"]` in root `package.json`):
 
-- **`@mctx-ai/app`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `createProgress`, `PROGRESS_DEFAULTS`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`, `createEmit`, `META_KEY_PATTERN`. Type exports include `McpContext` (`{ userId?: string, emit: EmitFunction }`). Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
-- **`@mctx-ai/dev`** (`packages/dev/`) — Dev server with hot reload, request logging, log surfacing (handler log entries printed to dev console), and sampling stub (`/_mctx/sampling` endpoint returns error in dev mode). Peer-depends on `@mctx-ai/app`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
-- **`create-mctx-app`** (`packages/create-mctx-app/`) — CLI scaffolding tool (`npm create mctx-app <name>`). Generates a new project with `@mctx-ai/app` + `@mctx-ai/dev` + `esbuild` configured.
+- **`@mctx-ai/mcp`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `createProgress`, `PROGRESS_DEFAULTS`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`, `createEmit`, `META_KEY_PATTERN`. Type exports include `McpContext` (`{ userId?: string, emit: EmitFunction }`). Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
+- **`@mctx-ai/dev`** (`packages/dev/`) — Dev server with hot reload, request logging, log surfacing (handler log entries printed to dev console), and sampling stub (`/_mctx/sampling` endpoint returns error in dev mode). Peer-depends on `@mctx-ai/mcp`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
+- **`create-mctx-app`** (`packages/create-mctx-app/`) — CLI scaffolding tool (`npm create mctx-app <name>`). Generates a new project with `@mctx-ai/mcp` + `@mctx-ai/dev` + `esbuild` configured.
 
 Root commands affect all workspaces. Use `--workspace` flag for package-specific operations.
 
@@ -64,15 +64,15 @@ npm run format:check  # Check formatting without modifying
 
 ```bash
 # Testing
-npm run test --workspace=@mctx-ai/app
-npm run test:coverage --workspace=@mctx-ai/app  # V8 coverage, 80% thresholds
+npm run test --workspace=@mctx-ai/mcp
+npm run test:coverage --workspace=@mctx-ai/mcp  # V8 coverage, 80% thresholds
 npx vitest run test/uri.test.js                        # Single test file (from packages/server/)
 npx vitest run -t "test name"                          # Specific test by name
 
 # Code quality
-npm run lint --workspace=@mctx-ai/app
-npm run lint:fix --workspace=@mctx-ai/app
-npm run typecheck --workspace=@mctx-ai/app  # tsc --noEmit
+npm run lint --workspace=@mctx-ai/mcp
+npm run lint:fix --workspace=@mctx-ai/mcp
+npm run typecheck --workspace=@mctx-ai/mcp  # tsc --noEmit
 ```
 
 ---
@@ -270,10 +270,10 @@ No commit hooks (no husky, no lint-staged). All quality checks run in CI.
 npm test
 
 # Single package
-npm run test --workspace=@mctx-ai/app
+npm run test --workspace=@mctx-ai/mcp
 
 # With coverage report
-npm run test:coverage --workspace=@mctx-ai/app
+npm run test:coverage --workspace=@mctx-ai/mcp
 
 # Single test file
 npx vitest run test/uri.test.js
@@ -293,7 +293,7 @@ npx vitest run -t "validates URI templates correctly"
 1. **Trigger:** Push to `main` branch
 2. **CI gate:** Build, lint, test, and smoke test all three packages must pass first
 3. **Release:** `multi-semantic-release` analyzes commits, bumps versions, publishes to npm, creates GitHub releases
-4. **Post-publish check:** Waits 30s then runs `npm install @mctx-ai/app@latest --dry-run` to verify npm propagation
+4. **Post-publish check:** Waits 30s then runs `npm install @mctx-ai/mcp@latest --dry-run` to verify npm propagation
 
 **Concurrency:** Only one release runs at a time (`concurrency: { group: release, cancel-in-progress: false }`).
 

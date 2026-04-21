@@ -1,5 +1,5 @@
 /**
- * @mctx-ai/app TypeScript Definitions
+ * @mctx-ai/mcp TypeScript Definitions
  *
  * Build MCP servers with an Express-like API - no protocol knowledge required.
  */
@@ -129,7 +129,7 @@ export interface ServerOptions {
  *
  * @example
  * ```typescript
- * import { createServer, T } from '@mctx-ai/app';
+ * import { createServer, T } from '@mctx-ai/mcp';
  *
  * const server = createServer({
  *   instructions: "You help developers debug CI pipelines..."
@@ -229,7 +229,7 @@ export declare const META_KEY_PATTERN: RegExp;
  *
  * @example
  * ```typescript
- * import { createEmit } from '@mctx-ai/app';
+ * import { createEmit } from '@mctx-ai/mcp';
  *
  * const responseHeaders = new Headers();
  * const emit = createEmit(responseHeaders);
@@ -253,7 +253,7 @@ export declare function createEmit(responseHeaders: Headers | null | undefined):
  *
  * @example
  * ```typescript
- * import { createCancel } from '@mctx-ai/app';
+ * import { createCancel } from '@mctx-ai/mcp';
  *
  * const responseHeaders = new Headers();
  * const cancel = createCancel(responseHeaders);
@@ -589,7 +589,7 @@ export interface ObjectOptions {
  *
  * @example
  * ```typescript
- * import { T } from '@mctx-ai/app';
+ * import { T } from '@mctx-ai/mcp';
  *
  * const handler = {
  *   input: {
@@ -886,7 +886,7 @@ export interface LogNotification {
  *
  * @example
  * ```typescript
- * import { getLogBuffer } from '@mctx-ai/app';
+ * import { getLogBuffer } from '@mctx-ai/mcp';
  *
  * const entries = getLogBuffer();
  * // => [{ type: 'log', level: 'info', data: 'Server started' }, ...]
@@ -900,7 +900,7 @@ export function getLogBuffer(): LogNotification[];
  *
  * @example
  * ```typescript
- * import { clearLogBuffer } from '@mctx-ai/app';
+ * import { clearLogBuffer } from '@mctx-ai/mcp';
  *
  * clearLogBuffer(); // Buffer is now empty
  * ```
@@ -913,7 +913,7 @@ export function clearLogBuffer(): void;
  *
  * @example
  * ```typescript
- * import { log } from '@mctx-ai/app';
+ * import { log } from '@mctx-ai/mcp';
  *
  * log.debug('Variable value:', { x: 42 });
  * log.info('Server started on port 3000');

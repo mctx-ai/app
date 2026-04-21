@@ -9,7 +9,7 @@
  */
 
 import { createServer } from "http";
-import { getLogBuffer, clearLogBuffer } from "@mctx-ai/app";
+import { getLogBuffer, clearLogBuffer } from "@mctx-ai/mcp";
 import { watch } from "./watcher.js";
 
 // ANSI color codes for logging

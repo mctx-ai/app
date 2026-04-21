@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/v/@mctx-ai/mcp" alt="npm version"/></a>
   <a href="https://www.npmjs.com/package/@mctx-ai/mcp"><img src="https://img.shields.io/npm/l/@mctx-ai/mcp" alt="license"/></a>
-  <a href="https://github.com/mctx-ai/mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/app/ci.yml" alt="CI"/></a>
+  <a href="https://github.com/mctx-ai/mcp/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/mctx-ai/mcp/ci.yml" alt="CI"/></a>
 </p>
 
 ```bash

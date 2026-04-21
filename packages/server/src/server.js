@@ -5,7 +5,6 @@
  * app with tool/resource/prompt registration and JSON-RPC 2.0 routing.
  */
 
-import { createRequire } from "module";
 import { buildInputSchema } from "./types.js";
 import { matchUri, isTemplate } from "./uri.js";
 import { generateCompletions } from "./completion.js";
@@ -20,8 +19,7 @@ import {
 } from "./security.js";
 import { createAsk } from "./sampling.js";
 
-const require = createRequire(import.meta.url);
-const { version } = require("../package.json");
+const version = "2.0.1";
 
 /**
  * HTTP Security Headers

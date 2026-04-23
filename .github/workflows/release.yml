@@ -63,7 +63,7 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         run: npm publish --provenance --access public
         working-directory: packages/dev
-      - name: Publish create-mctx-app
+      - name: Publish create-mctx-server
         if: github.event_name == 'workflow_dispatch'
         run: npm publish --provenance --access public
         working-directory: packages/create-mctx-app

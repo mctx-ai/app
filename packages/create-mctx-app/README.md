@@ -2,16 +2,16 @@
   <img src="https://mctx.ai/brand/logo-black.png" width="120" alt="mctx" />
 </p>
 
-<p align="center">Scaffold an MCP server in one command.</p>
+<p align="center">mctx — The best way to Build an MCP Server</p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/create-mctx-app"><img src="https://img.shields.io/npm/v/create-mctx-app" alt="npm version" /></a>
+  <a href="https://www.npmjs.com/package/create-mctx-server"><img src="https://img.shields.io/npm/v/create-mctx-server" alt="npm version" /></a>
 </p>
 
 ---
 
 ```bash
-npm create mctx-app my-app
+npm create mctx-server my-app
 ```
 
 ## What you get
@@ -27,7 +27,7 @@ npm create mctx-app my-app
 ## Get running
 
 ```bash
-npm create mctx-app my-app
+npm create mctx-server my-app
 cd my-app
 npm install
 npm run dev
@@ -37,13 +37,13 @@ Your MCP server is running. Edit `index.js` to add your tools.
 
 ## Deploy
 
-Connect your GitHub repo at [mctx.ai](https://mctx.ai) and deploy. Developers keep 100% of subscriber revenue (0% platform fee). Full deployment docs at [docs.mctx.ai](https://docs.mctx.ai).
+Connect your GitHub repo at [mctx.ai](https://mctx.ai) and deploy. Full deployment docs at [docs.mctx.ai](https://docs.mctx.ai).
 
 ## Links
 
 - [Framework docs](https://docs.mctx.ai) — tools, resources, prompts, and more
-- [@mctx-ai/mcp](https://github.com/mctx-ai/mcp) — the framework powering your server
-- [Example server](https://github.com/mctx-ai/example-mcp-server) — a complete reference implementation
+- [@mctx-ai/mcp](https://github.com/mctx-ai/app) — the framework powering your server
+- [Example server](https://github.com/mctx-ai/example-app) — a complete reference implementation
 - [Feedback](https://github.com/mctx-ai/feedback) — ideas, bugs, questions
 
 ---

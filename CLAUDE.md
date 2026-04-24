@@ -38,7 +38,7 @@ Three npm workspaces in `packages/` (defined via `"workspaces": ["packages/*"]` 
 
 - **`@mctx-ai/mcp`** (`packages/server/`) — Core framework. Zero runtime dependencies. Exports `createServer`, `T`, `conversation`, `log`, `buildInputSchema`, `getLogBuffer`, `clearLogBuffer`. Type exports include `ModelContext` (`{ userId?: string }`). Build is a simple `cp src/*.js src/*.d.ts dist/` (no transpilation).
 - **`@mctx-ai/dev`** (`packages/dev/`) — Dev server with hot reload, request logging, log surfacing (handler log entries printed to dev console), and sampling stub (`/_mctx/sampling` endpoint returns error in dev mode). Peer-depends on `@mctx-ai/mcp`. Uses Node.js built-in test runner (`node --test`), not Vitest. Lint is a stub (`echo 'Linting not configured yet'`).
-- **`create-mctx-server`** (`packages/create-mctx-app/`) — CLI scaffolding tool (`npm create mctx-server <name>`). Generates a new project with `@mctx-ai/mcp` + `@mctx-ai/dev` + `esbuild` configured.
+- **`create-mctx-server`** (`packages/create-mctx-server/`) — CLI scaffolding tool (`npm create mctx-server <name>`). Generates a new project with `@mctx-ai/mcp` + `@mctx-ai/dev` + `esbuild` configured.
 
 Root commands affect all workspaces. Use `--workspace` flag for package-specific operations.
 

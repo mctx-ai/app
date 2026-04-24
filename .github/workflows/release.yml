@@ -28,7 +28,7 @@ jobs:
       - name: Smoke test (dev)
         run: node ${{ github.workspace }}/packages/dev/src/cli.js --help
       - name: Smoke test (create)
-        run: node ${{ github.workspace }}/packages/create-mctx-app/index.js --help
+        run: node ${{ github.workspace }}/packages/create-mctx-server/index.js --help
 
   release:
     needs: ci-gate
@@ -66,7 +66,7 @@ jobs:
       - name: Publish create-mctx-server
         if: github.event_name == 'workflow_dispatch'
         run: npm publish --provenance --access public
-        working-directory: packages/create-mctx-app
+        working-directory: packages/create-mctx-server
 
   post-publish-check:
     needs: release

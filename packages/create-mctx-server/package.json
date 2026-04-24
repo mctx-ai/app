@@ -22,7 +22,7 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/mctx-ai/mcp.git",
-    "directory": "packages/create-mctx-app"
+    "directory": "packages/create-mctx-server"
   },
   "bugs": {
     "url": "https://github.com/mctx-ai/mcp/issues"

@@ -42,8 +42,8 @@ Connect your GitHub repo at [mctx.ai](https://mctx.ai) and deploy. Full deployme
 ## Links
 
 - [Framework docs](https://docs.mctx.ai) — tools, resources, prompts, and more
-- [@mctx-ai/mcp](https://github.com/mctx-ai/app) — the framework powering your server
-- [Example server](https://github.com/mctx-ai/example-app) — a complete reference implementation
+- [@mctx-ai/mcp](https://github.com/mctx-ai/mcp) — the framework powering your server
+- [Example server](https://github.com/mctx-ai/example-mcp-server) — a complete reference implementation
 - [Feedback](https://github.com/mctx-ai/feedback) — ideas, bugs, questions
 
 ---

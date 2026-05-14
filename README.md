@@ -58,7 +58,7 @@ npx mctx-dev index.js
 
 **Use the template repo:**
 
-[github.com/mctx-ai/example-app](https://github.com/new?template_name=example-app&template_owner=mctx-ai) — click "Use this template" on GitHub.
+[github.com/mctx-ai/example-mcp-server](https://github.com/new?template_name=example-mcp-server&template_owner=mctx-ai) — click "Use this template" on GitHub.
 
 **Add to an existing project:**
 
